@@ -45,6 +45,16 @@ from schemas.enums import ComplianceDecisionCode, ReviewVerdict
 from schemas.models.collection import ComplianceDecision
 from schemas.models.reference import Source, SourceReview
 
+# ADR-019: the governing compliance document depends on what kind of access this
+# is. For an API consumed under a published contract, robots.txt is not the
+# governing document - it addresses crawlers. For anything fetched as a web
+# page, robots.txt governs absolutely and BLOCKED_ROBOTS stays terminal.
+#
+# This is a property of the source row, not a call-time argument. There is no
+# flag that moves a source between these sets, and no web-scraped source is in
+# the API set. tests/integration/test_compliance_basis.py enforces both.
+API_CONTRACT_TIERS: frozenset[int] = frozenset({1, 5})
+
 __all__ = ["Allowed", "ComplianceGate", "GateResult", "Refused", "evaluate"]
 
 
@@ -197,8 +207,18 @@ class ComplianceGate:
             )
 
         # --- 3 & 4. robots.txt, then the path ------------------------------
+        # Fetched for every source, including API sources, because the record of
+        # what a site published is worth having even when it does not govern.
         document = self._robots.get(source.code, source.base_url, now=now)
         allowed, matched_rule = document.allows(path, self._config.user_agent)
+
+        if source.tier in API_CONTRACT_TIERS:
+            matched_rule = (
+                f"api terms (tier {source.tier}): robots.txt is not the governing "
+                f"document for API access; robots said: {matched_rule}"
+            )
+            allowed = True
+
         if not allowed:
             return refuse(
                 ComplianceDecisionCode.BLOCKED_ROBOTS,

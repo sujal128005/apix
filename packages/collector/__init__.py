@@ -19,6 +19,7 @@ from collector.adapter import (
 from collector.mock_adapter import MockAdapter, MockBehaviour
 from collector.retry import RetryPolicy, TransportOutcome, is_retryable
 from collector.runner import CollectionRunner, RunResult, SpecOutcome
+from collector.tls import TlsLadder, TlsMode, build_ssl_context
 
 __all__ = [
     "AdapterRequest",
@@ -34,6 +35,9 @@ __all__ = [
     "SourceAdapter",
     "SourceValidation",
     "SpecOutcome",
+    "TlsLadder",
+    "TlsMode",
     "TransportOutcome",
+    "build_ssl_context",
     "is_retryable",
 ]
