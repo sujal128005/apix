@@ -26,16 +26,17 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = { "schemas" = "packages/schemas", "compliance" = "packages/compliance", "collector" = "packages/collector", "index_engine" = "packages/index_engine", "db" = "db" }
+package-dir = { "schemas" = "packages/schemas", "compliance" = "packages/compliance", "collector" = "packages/collector", "index_engine" = "packages/index_engine", "pipeline" = "packages/pipeline", "db" = "db" }
 
 [tool.setuptools.packages]
-find = { where = ["packages", "."], include = ["schemas*", "compliance*", "collector*", "index_engine*", "db*"], exclude = ["db.migrations*"] }
+find = { where = ["packages", "."], include = ["schemas*", "compliance*", "collector*", "index_engine*", "pipeline*", "db*"], exclude = ["db.migrations*"] }
 
 [tool.setuptools.package-data]
 schemas = ["py.typed"]
 compliance = ["py.typed"]
 collector = ["py.typed"]
 index_engine = ["py.typed"]
+pipeline = ["py.typed"]
 
 # --------------------------------------------------------------------------
 # Lint / format
