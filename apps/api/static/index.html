@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIx — Real-time Airfare Price Index | Ministry of Statistics and Programme Implementation</title>
+<style>
+  :root {
+    --ink:        #1a1a1a;
+    --ink-soft:   #4a4a4a;
+    --ink-faint:  #6e6e6e;
+    --rule:       #d4d0c8;
+    --rule-soft:  #e8e5df;
+    --page:       #f7f6f3;
+    --panel:      #ffffff;
+    --navy:       #1c3a5e;
+    --navy-soft:  #eef2f7;
+    --ok:         #1e5e3a;
+    --warn:       #8a5a00;
+    --warn-bg:    #fdf6e3;
+    --stop:       #8a2020;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  header.masthead {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 28px;
+    border-bottom: 3px solid #c8901e;
+  }
+  .masthead .org { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+  .masthead h1 { margin: 4px 0 2px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+  .masthead .sub { font-size: 13px; opacity: .8; }
+  nav {
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 28px;
+    display: flex; gap: 26px;
+    font-size: 13.5px;
+  }
+  nav a {
+    color: var(--ink-soft); text-decoration: none;
+    padding: 11px 0; border-bottom: 2px solid transparent;
+  }
+  nav a.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+  main { padding: 22px 28px 60px; max-width: 1280px; }
+  .banner {
+    background: var(--warn-bg); border: 1px solid #e0c98a;
+    border-left: 4px solid #c8901e;
+    padding: 12px 16px; margin-bottom: 22px; font-size: 13.5px;
+  }
+  .banner strong { color: var(--warn); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--rule); padding: 14px 16px; }
+  .stat .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .stat .value { font-size: 27px; font-weight: 600; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+  .stat .value.muted { font-size: 16px; font-weight: 500; color: var(--ink-faint); }
+  .stat .note { font-size: 12px; color: var(--ink-faint); }
+  section { background: var(--panel); border: 1px solid var(--rule); margin-bottom: 20px; }
+  section > h2 {
+    margin: 0; padding: 11px 16px; font-size: 14px; font-weight: 600;
+    border-bottom: 1px solid var(--rule); background: #fafaf8;
+  }
+  section > .body { padding: 14px 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 16px; border-bottom: 1px solid var(--rule-soft); }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 600; background: #fafaf8; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border: 1px solid; letter-spacing: .03em; }
+  .tag.sim  { color: var(--warn); border-color: #d8b96a; background: var(--warn-bg); }
+  .tag.live { color: var(--ok);   border-color: #a8c8b4; background: #f0f7f2; }
+  .tag.off  { color: var(--navy); border-color: #b8c8dc; background: var(--navy-soft); }
+  .tag.stop { color: var(--stop); border-color: #d8a8a8; background: #fdf2f2; }
+  .meta { font-size: 12px; color: var(--ink-faint); padding: 9px 16px; border-top: 1px solid var(--rule-soft); background: #fafaf8; }
+  code { font: 12.5px ui-monospace, Consolas, monospace; background: #f2f1ed; padding: 1px 5px; }
+  .empty { color: var(--ink-faint); font-style: italic; padding: 18px 16px; }
+  footer { padding: 20px 28px; font-size: 12px; color: var(--ink-faint); border-top: 1px solid var(--rule); }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="org">Ministry of Statistics and Programme Implementation · Data Informatics &amp; Innovation Division</div>
+  <h1>APIx — Real-time Airfare Price Index</h1>
+  <div class="sub">Daily airfare index for India, computed with the CPI 2024 methodology · Problem Statement 26056</div>
+</header>
+
+<nav>
+  <a class="active" href="#">Dashboard</a>
+  <a href="/api/v1/index/routes">Routes</a>
+  <a href="/api/v1/quotes">Observations</a>
+  <a href="/api/v1/sources">Sources</a>
+  <a href="/api/v1/benchmark">Benchmark</a>
+  <a href="/api/v1/methodology">Methodology</a>
+  <a href="/api/docs">API</a>
+</nav>
+
+<main>
+  <div id="banner"></div>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Route-level index</h2>
+    <div id="routes"><div class="empty">Loading…</div></div>
+    <div class="meta" id="routes-meta"></div>
+  </section>
+
+  <section>
+    <h2>Official CPI 2024 benchmark — domestic airfare (item 294, COICOP 07.3.3.1.2.01)</h2>
+    <div id="benchmark"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Source: MoSPI open API, <code>getCPIData</code>. Base 2024 = 100.
+      <strong>Levels are not comparable with APIx</strong>, which uses its own base period —
+      only movements are.
+    </div>
+  </section>
+
+  <section>
+    <h2>Source compliance</h2>
+    <div id="sources"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Sources are opt-in and disabled by default. A source blocked by robots.txt is shown as
+      blocked: the adapter exists, the compliance gate refuses to run it, and there is no
+      override anywhere in the codebase.
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent observations</h2>
+    <div id="quotes"><div class="empty">Loading…</div></div>
+  </section>
+</main>
+
+<footer>
+  APIx prototype · Every figure on this page is traceable to an individual fare quote,
+  its source and its collection timestamp. Methodology and labelled assumptions:
+  <code>/api/v1/methodology</code>
+</footer>
+
+<script>
+const money = n => n === null || n === undefined ? "—" : "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 0});
+const idx   = n => n === null || n === undefined ? "—" : Number(n).toFixed(3);
+const esc   = s => String(s ?? "—").replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+
+async function get(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(path + " → " + r.status);
+  return r.json();
+}
+
+function provTag(p) {
+  const cls = p === "SIMULATED_DEMO" ? "sim" : p === "OFFICIAL_STATISTIC" ? "off" : "live";
+  return `<span class="tag ${cls}">${esc(p)}</span>`;
+}
+
+function table(cols, rows) {
+  if (!rows.length) return '<div class="empty">No records.</div>';
+  return `<table><thead><tr>${cols.map(c => `<th${c.num ? ' style="text-align:right"' : ""}>${c.label}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${cols.map(c => `<td class="${c.num ? "num" : ""}">${c.render(r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+async function load() {
+  let latest;
+  try { latest = await get("/api/v1/index/latest"); }
+  catch (e) { document.getElementById("banner").innerHTML =
+    `<div class="banner"><strong>API unavailable.</strong> ${esc(e.message)}</div>`; return; }
+
+  const d = latest.data, m = latest.meta;
+
+  if (d.headline_unavailable_reason) {
+    document.getElementById("banner").innerHTML =
+      `<div class="banner"><strong>No published headline index.</strong> ${esc(d.headline_unavailable_reason)}</div>`;
+  }
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat">
+      <div class="label">Headline APIx</div>
+      <div class="value ${d.headline ? "" : "muted"}">${d.headline ? idx(d.headline.index_value) : "Not published"}</div>
+      <div class="note">${d.headline ? "as at " + esc(d.headline.obs_date) : "withheld — see notice above"}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Operating mode</div>
+      <div class="value muted">${esc(m.mode)}</div>
+      <div class="note">${(m.provenance || []).map(provTag).join(" ")}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Methodology version</div>
+      <div class="value muted">${esc(m.methodology_version)}</div>
+      <div class="note">Jevons short · Young / Modified Laspeyres</div>
+    </div>
+    <div class="stat">
+      <div class="label">Weight set</div>
+      <div class="value muted">${esc(m.weight_set_version)}</div>
+      <div class="note">evidence rung shown per route</div>
+    </div>`;
+
+  try {
+    const r = await get("/api/v1/index/routes?limit=25");
+    document.getElementById("routes").innerHTML = table([
+      {label: "Date",   render: x => esc(x.obs_date)},
+      {label: "Route",  render: x => `<code>${esc(x.route)}</code>`},
+      {label: "Index",  num: true, render: x => idx(x.index_value)},
+      {label: "Prev",   num: true, render: x => idx(x.previous_index_value)},
+      {label: "Move",   num: true, render: x => x.movement === null ? "—" : (x.movement >= 0 ? "+" : "") + idx(x.movement)},
+      {label: "Quotes", num: true, render: x => x.input_quote_count},
+      {label: "Excl.",  num: true, render: x => x.excluded_count},
+      {label: "Imputed",num: true, render: x => x.imputed_count},
+    ], r.data);
+    document.getElementById("routes-meta").textContent =
+      `Methodology ${r.meta.methodology_version ?? "—"} · weight set ${r.meta.weight_set_version ?? "—"} · generated ${r.meta.as_of}`;
+  } catch { document.getElementById("routes").innerHTML = '<div class="empty">No index values computed yet.</div>'; }
+
+  try {
+    const b = await get("/api/v1/benchmark");
+    const series = b.data.series.slice(-12);
+    document.getElementById("benchmark").innerHTML = table([
+      {label: "Month",     render: x => `${esc(x.month)} ${esc(x.year)}`},
+      {label: "Sector",    render: x => esc(x.sector)},
+      {label: "Index",     num: true, render: x => Number(x.index).toFixed(2)},
+      {label: "YoY %",     num: true, render: x => Number(x.inflation).toFixed(2)},
+      {label: "Imputed",   render: x => x.imputation === "Y" ? '<span class="tag sim">Y</span>' : "N"},
+    ], series);
+  } catch { document.getElementById("benchmark").innerHTML =
+      '<div class="empty">Benchmark not fetched. Run <code>scripts/fetch_cpi_airfare_series.py</code>.</div>'; }
+
+  try {
+    const s = await get("/api/v1/sources");
+    document.getElementById("sources").innerHTML = table([
+      {label: "Source",  render: x => esc(x.name)},
+      {label: "Tier",    num: true, render: x => x.tier},
+      {label: "Access",  render: x => esc(x.transport)},
+      {label: "Enabled", render: x => x.enabled ? '<span class="tag live">yes</span>' : '<span class="tag off">no</span>'},
+      {label: "Last decision", render: x => x.last_decision
+        ? `<span class="tag ${x.last_decision.startsWith("BLOCKED") ? "stop" : "live"}">${esc(x.last_decision)}</span>`
+        : "—"},
+      {label: "Rule", render: x => esc(x.matched_rule)},
+    ], s.data);
+  } catch { document.getElementById("sources").innerHTML = '<div class="empty">Unavailable.</div>'; }
+
+  try {
+    const q = await get("/api/v1/quotes?limit=20");
+    document.getElementById("quotes").innerHTML = table([
+      {label: "Date",    render: x => esc(x.collected_date)},
+      {label: "Route",   render: x => `<code>${esc(x.route)}</code>`},
+      {label: "Bucket",  render: x => esc(x.bucket)},
+      {label: "Carrier", render: x => esc(x.carrier)},
+      {label: "Flight",  render: x => esc(x.flight_no)},
+      {label: "Fare",    num: true, render: x => money(x.total_fare)},
+      {label: "Quality", render: x => esc(x.quality_status)},
+      {label: "Provenance", render: x => provTag(x.provenance)},
+    ], q.data);
+  } catch { document.getElementById("quotes").innerHTML = '<div class="empty">No observations collected yet.</div>'; }
+}
+
+load();
+</script>
+</body>
+</html>

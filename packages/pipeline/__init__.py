@@ -18,6 +18,14 @@ from pipeline.normalise import (
     normalise_payload,
     score_quality,
 )
+from pipeline.weights import (
+    WeightCandidate,
+    WeightSet,
+    WeightValidationError,
+    build_equal_weights,
+    build_from_traffic,
+    validate_weight_set,
+)
 
 __all__ = [
     "ImputationResult",
@@ -26,10 +34,16 @@ __all__ = [
     "ObservedQuote",
     "StratumKey",
     "StratumState",
+    "WeightCandidate",
+    "WeightSet",
+    "WeightValidationError",
+    "build_equal_weights",
+    "build_from_traffic",
     "build_matched_pairs",
     "group_by_stratum",
     "imputation_rate",
     "impute_missing",
     "normalise_payload",
     "score_quality",
+    "validate_weight_set",
 ]
