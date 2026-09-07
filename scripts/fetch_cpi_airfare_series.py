@@ -40,6 +40,28 @@ BASE = "https://api.mospi.gov.in"
 USER_AGENT = "APIx-Research/0.1 (+https://github.com/sujal128005/apix; MoSPI SIH 2026 PS 26056)"
 EVIDENCE = _REPO / "docs" / "evidence" / "O2b-cpi-airfare-series.md"
 
+# MoSPI returns month *names*, so sorting by the raw string gives April, August,
+# December, February, January... A chronological series ordered alphabetically
+# still plots, still computes an MAE, and is entirely wrong - so the ordering is
+# made explicit rather than left to string comparison.
+MONTH_ORDER = {
+    name: number
+    for number, name in enumerate(
+        (
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ),
+        start=1,
+    )
+}
+
+
+def month_key(row: dict[str, Any]) -> tuple[int, int]:
+    """(year, month-number) for chronological sorting. Unknown months sort last."""
+    year = int(str(row.get("year", "0")) or 0)
+    return year, MONTH_ORDER.get(str(row.get("month", "")).strip().title(), 99)
+
+
 AIRFARE = {
     "item_code": "294",
     "item_name": "Airfare",
@@ -152,7 +174,7 @@ def _write_evidence(
                 "## Series",
                 "",
                 "```json",
-                json.dumps(rows, indent=2, ensure_ascii=False)[:200000],
+                json.dumps(sorted(rows, key=month_key), indent=2, ensure_ascii=False)[:200000],
                 "```",
                 "",
                 "## Limits on how this may be used",
@@ -230,12 +252,18 @@ def main() -> int:
     print(f"\nAll {len(all_rows)} rows are Airfare. The item filter is applied server-side.")
 
     combined = [r for r in all_rows if str(r.get("sector")) == "Combined"]
-    combined.sort(key=lambda r: (str(r.get("year")), str(r.get("month"))))
+    combined.sort(key=month_key)
     print(f"Combined-sector months: {len(combined)}")
     if combined:
         first, last = combined[0], combined[-1]
         print(f"  range: {first.get('month')} {first.get('year')} .. "
-              f"{last.get('month')} {last.get('year')}")
+              f"{last.get('month')} {last.get('year')} (chronological)")
+        expected = (
+            (month_key(last)[0] - month_key(first)[0]) * 12
+            + month_key(last)[1] - month_key(first)[1] + 1
+        )
+        if expected != len(combined):
+            print(f"  !! gap: {expected} months spanned but {len(combined)} present")
         imputed = sum(1 for r in combined if str(r.get("imputation")).upper() == "Y")
         print(f"  imputed months: {imputed} of {len(combined)}")
 
@@ -253,7 +281,9 @@ def main() -> int:
                 "source_url": f"{BASE}/api/cpi/getCPIData",
                 "retrieved_at": started.isoformat(),
                 "item": AIRFARE,
-                "rows": all_rows,
+                "_ordering": "rows are sorted chronologically by (year, month); "
+                "MoSPI returns month names, which do not sort correctly as strings",
+                "rows": sorted(all_rows, key=month_key),
             },
             indent=2,
             ensure_ascii=False,
