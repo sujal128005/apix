@@ -1,0 +1,38 @@
+# Phase 3 runs PostgreSQL 16 only. No application images are built in this phase.
+#
+# The published port defaults to 5433, not 5432, because the default port is
+# frequently already taken by another local PostgreSQL. Override with
+# APIX_DB_PORT in .env.
+#
+# The port is bound to 127.0.0.1 so the development database is never reachable
+# from outside this machine.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: apix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${APIX_DB_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${APIX_DB_SUPERUSER_PASSWORD:-apix_local_dev_only}
+      POSTGRES_DB: ${APIX_DB_NAME:-apix}
+      # Store UTC. IST is a rendering concern at the edge only.
+      TZ: UTC
+      PGTZ: UTC
+    command:
+      - postgres
+      - -c
+      - timezone=UTC
+    ports:
+      - "127.0.0.1:${APIX_DB_PORT:-5433}:5432"
+    volumes:
+      - apix_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APIX_DB_SUPERUSER:-postgres} -d ${APIX_DB_NAME:-apix}"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  apix_pgdata:
+    name: apix_pgdata

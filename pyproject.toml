@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apix"
+version = "0.3.0"
+description = "APIx - Real-time Airfare Price Index for India (SIH 2026 PS 26056). Phase 3: data layer and contracts."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "SQLAlchemy>=2.0.30",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[tool.setuptools]
+package-dir = { "schemas" = "packages/schemas", "db" = "db" }
+
+[tool.setuptools.packages]
+find = { where = ["packages", "."], include = ["schemas*", "db*"], exclude = ["db.migrations*"] }
+
+[tool.setuptools.package-data]
+schemas = ["py.typed"]
+
+# --------------------------------------------------------------------------
+# Lint / format
+# --------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["packages", "."]
+extend-exclude = ["db/migrations/versions/__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM", "RUF", "N"]
+ignore = [
+    # `lambda` is a reserved Python word but is the column name fixed by the
+    # build brief (lead_time_bucket.lambda); the ORM attribute is `lambda_`.
+    "N815",
+]
+
+[tool.ruff.lint.isort]
+# `schemas` lives under packages/ and `db`/`tests` at the repository root;
+# without this they are mistaken for third-party imports.
+known-first-party = ["schemas", "db", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic revision identifiers are lower-case module-level constants by convention.
+"db/migrations/versions/*.py" = ["N816", "E501"]
+"tests/*" = ["E501"]
+
+# --------------------------------------------------------------------------
+# Types
+# --------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+files = ["packages/schemas"]
+
+# --------------------------------------------------------------------------
+# Tests
+# --------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: requires a live PostgreSQL 16 instance",
+    "constraint: proves one of the five C1-C5 constraints",
+    "adversarial: feeds a known-bad fixture and asserts the database rejects or flags it",
+]
+filterwarnings = ["error::DeprecationWarning:schemas.*"]

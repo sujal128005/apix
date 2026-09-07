@@ -1,0 +1,107 @@
+{
+  "_note": [
+    "Synthetic test data. These are not real fares and are never loaded into a",
+    "development or production database - the integration suite creates a",
+    "throwaway database, loads this fixture, asserts on it and drops the",
+    "database. The four price pairs are the ones specified verbatim in build",
+    "brief section 8; flight numbers, dates and brands are scaffolding chosen so",
+    "the rows are distinguishable under the dedup key.",
+    "",
+    "The provenance value is LIVE_COLLECTED because provenance is the field",
+    "under test: the lineage traversal has to reach a HEADLINE observation, and",
+    "the C5 trigger correctly refuses to build one over SIMULATED_DEMO rows."
+  ],
+
+  "route": "DEL-BOM",
+  "bucket": "T7",
+  "source": "indigo_web",
+  "carrier": "6E",
+  "currency": "INR",
+  "provenance": "LIVE_COLLECTED",
+  "quality_status": "COMPLETE",
+
+  "previous": {
+    "collected_date": "2026-03-02",
+    "collected_at": "2026-03-02T06:30:00+00:00",
+    "travel_date": "2026-03-09"
+  },
+  "current": {
+    "collected_date": "2026-03-03",
+    "collected_at": "2026-03-03T06:30:00+00:00",
+    "travel_date": "2026-03-10"
+  },
+
+  "prior_stratum_index": "100.000000",
+
+  "expected_stratum_index": "102.313",
+  "expected_stratum_index_note": [
+    "Expected output of the PHASE 9 index engine, recorded here as the target,",
+    "not computed by this phase. Jevons short (chain-base) over the three",
+    "accepted pairs after the engine rejects D as an outlier:",
+    "GM(5000/5000, 5610/5500, 6300/6000) x 100.000000.",
+    "Phase 3 persists these rows and proves the lineage survives the schema; it",
+    "does not compute the index."
+  ],
+
+  "pairs": [
+    {
+      "pair": "A",
+      "flight_no": "6E2001",
+      "fare_brand": "SAVER",
+      "departure_time": "07:45:00",
+      "previous_fare": "5000.00",
+      "current_fare": "5000.00",
+      "outlier": false
+    },
+    {
+      "pair": "B",
+      "flight_no": "6E2117",
+      "fare_brand": "SAVER",
+      "departure_time": "10:20:00",
+      "previous_fare": "5500.00",
+      "current_fare": "5610.00",
+      "outlier": false
+    },
+    {
+      "pair": "C",
+      "flight_no": "6E5033",
+      "fare_brand": "FLEXI",
+      "departure_time": "14:05:00",
+      "previous_fare": "6000.00",
+      "current_fare": "6300.00",
+      "outlier": false
+    },
+    {
+      "pair": "D",
+      "flight_no": "6E6789",
+      "fare_brand": "FLEXI",
+      "departure_time": "19:50:00",
+      "previous_fare": "6200.00",
+      "current_fare": "20000.00",
+      "outlier": true,
+      "outlier_note": [
+        "D is the outlier the Phase 9 engine must reject. Phase 3 stores it and",
+        "records that a rule looked at it; it does not evaluate the rule."
+      ]
+    }
+  ],
+
+  "cleaning_events": {
+    "all_quotes": [
+      {
+        "rule_id": "R-NORMALISE-CURRENCY",
+        "action": "ACCEPT",
+        "reason": "quoted currency is INR; no conversion applied"
+      }
+    ],
+    "outlier_only": [
+      {
+        "rule_id": "R-OUTLIER-MAD-LOG-RELATIVES",
+        "action": "FLAG_FOR_ENGINE_REVIEW",
+        "threshold": "3.5",
+        "observed": null,
+        "reason": "candidate outlier; the MAD statistic is computed by the Phase 9 index engine, not stored here"
+      }
+    ]
+  }
+}

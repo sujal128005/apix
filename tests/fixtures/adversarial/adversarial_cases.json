@@ -1,0 +1,126 @@
+{
+  "_note": [
+    "The manifest of known-bad inputs from build brief section 8. Each case must be",
+    "rejected by the database, or - where rejection would destroy legitimate",
+    "information - correctly flagged.",
+    "",
+    "tests/integration/test_adversarial.py carries one test per case id, and",
+    "test_adversarial_manifest_is_covered asserts the two lists match exactly, so a",
+    "case cannot be added here without a test or removed from the tests without",
+    "being noticed."
+  ],
+  "cases": [
+    {
+      "id": "zero_fare",
+      "target": "normalised_quote.total_fare",
+      "input": "0.00",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_normalised_quote_total_fare_positive",
+      "error": "IntegrityError / CheckViolation"
+    },
+    {
+      "id": "negative_fare",
+      "target": "normalised_quote.total_fare",
+      "input": "-100.00",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_normalised_quote_total_fare_positive",
+      "error": "IntegrityError / CheckViolation"
+    },
+    {
+      "id": "duplicate_quote_dedup_key",
+      "target": "normalised_quote",
+      "input": "second row with identical (source_id, carrier, flight_no, departure_ts, fare_brand, collected_date)",
+      "outcome": "REJECTED",
+      "mechanism": "UNIQUE uq_normalised_quote_dedup",
+      "error": "IntegrityError / UniqueViolation"
+    },
+    {
+      "id": "missing_provenance",
+      "target": "normalised_quote.provenance",
+      "input": "NULL",
+      "outcome": "REJECTED",
+      "mechanism": "NOT NULL",
+      "error": "IntegrityError / NotNullViolation"
+    },
+    {
+      "id": "invalid_iata",
+      "target": "airport.iata",
+      "input": "XX, DELH, del",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_airport_iata_format plus the CHAR(3) width; 'XX' is blank-padded to 'XX ' and fails the pattern, 'DELH' overflows the column, 'del' fails the pattern",
+      "error": "IntegrityError / CheckViolation, or DataError / StringDataRightTruncation for DELH"
+    },
+    {
+      "id": "origin_equals_destination",
+      "target": "route",
+      "input": "origin_id = destination_id",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_route_origin_ne_destination",
+      "error": "IntegrityError / CheckViolation"
+    },
+    {
+      "id": "fare_components_exceed_total",
+      "target": "fare_component",
+      "input": "components summing to more than normalised_quote.total_fare",
+      "outcome": "FLAGGED",
+      "mechanism": "Architect ruling, Phase 3 review: flag, do not reject. The total is the index price; the components are supplementary. A source with a bad decomposition is giving us a bad breakdown, not a bad price, and rejecting would discard a usable observation. The quote is kept with quality_status = PARTIAL, missing_reason = PARTIAL_COMPONENTS and component_confidence = LOW, plus a cleaning_event recording what was seen. This is what PARTIAL_COMPONENTS exists for.",
+      "error": "none - stored and flagged"
+    },
+    {
+      "id": "null_evidence_rung",
+      "target": "route_weight.evidence_rung",
+      "input": "NULL",
+      "outcome": "REJECTED",
+      "mechanism": "NOT NULL (constraint C1)",
+      "error": "IntegrityError / NotNullViolation"
+    },
+    {
+      "id": "weight_set_sums_to_0_97",
+      "target": "route_weight",
+      "input": "a weight set whose weights sum to 0.97",
+      "outcome": "REJECTED",
+      "mechanism": "deferred constraint trigger trg_route_weight_sums_to_one, fired at COMMIT (constraint C2)",
+      "error": "IntegrityError / CheckViolation (SQLSTATE 23514)"
+    },
+    {
+      "id": "simulated_demo_reaches_headline",
+      "target": "index_observation",
+      "input": "HEADLINE row whose contributing quote set contains SIMULATED_DEMO provenance",
+      "outcome": "REJECTED",
+      "mechanism": "BEFORE INSERT trigger trg_index_observation_no_simulated, plus trg_index_contribution_no_simulated on the other side of the relationship (constraint C5)",
+      "error": "IntegrityError / CheckViolation (SQLSTATE 23514)"
+    },
+    {
+      "id": "update_on_immutable_table",
+      "target": "every IMM table",
+      "input": "UPDATE and DELETE as apix_app",
+      "outcome": "REJECTED",
+      "mechanism": "privileges revoked in migration 0003 (constraint C3)",
+      "error": "ProgrammingError / InsufficientPrivilege"
+    },
+    {
+      "id": "currency_usd",
+      "target": "normalised_quote.currency",
+      "input": "USD",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_normalised_quote_currency_inr",
+      "error": "IntegrityError / CheckViolation"
+    },
+    {
+      "id": "travel_date_before_collected_date",
+      "target": "collection_request",
+      "input": "travel_date one day before collected_date, and travel_date equal to collected_date",
+      "outcome": "REJECTED",
+      "mechanism": "CHECK ck_collection_request_travel_after_collected, strict: travel_date > collected_date. Every lead-time bucket has days >= 1, so same-day travel is impossible too. The constraint is an addition to the DDL in build brief section 5, made to satisfy this section 8 case and tightened from >= to > by architect ruling in the Phase 3 review.",
+      "error": "IntegrityError / CheckViolation"
+    },
+    {
+      "id": "naive_departure_timestamp",
+      "target": "normalised_quote.departure_ts",
+      "input": "datetime with no tzinfo",
+      "outcome": "REJECTED",
+      "mechanism": "Pydantic AwareDatetime on the contract. PostgreSQL cannot reject this - it silently interprets a naive timestamp in the session time zone - so the barrier is at the boundary, before the driver sees the value. The database is additionally pinned to UTC by migration 0001 so any value that bypasses the contract is at least interpreted deterministically.",
+      "error": "ValidationError"
+    }
+  ]
+}
