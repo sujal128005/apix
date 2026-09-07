@@ -25,14 +25,15 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = { "schemas" = "packages/schemas", "compliance" = "packages/compliance", "db" = "db" }
+package-dir = { "schemas" = "packages/schemas", "compliance" = "packages/compliance", "collector" = "packages/collector", "db" = "db" }
 
 [tool.setuptools.packages]
-find = { where = ["packages", "."], include = ["schemas*", "compliance*", "db*"], exclude = ["db.migrations*"] }
+find = { where = ["packages", "."], include = ["schemas*", "compliance*", "collector*", "db*"], exclude = ["db.migrations*"] }
 
 [tool.setuptools.package-data]
 schemas = ["py.typed"]
 compliance = ["py.typed"]
+collector = ["py.typed"]
 
 # --------------------------------------------------------------------------
 # Lint / format
