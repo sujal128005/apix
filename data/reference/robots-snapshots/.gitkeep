@@ -1,0 +1,3 @@
+# robots.txt snapshots land here, one directory per source.
+# Every fetch is written verbatim and hashed, so any past compliance decision
+# can be re-examined against the exact bytes it rested on.

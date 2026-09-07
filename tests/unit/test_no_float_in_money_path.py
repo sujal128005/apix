@@ -30,6 +30,26 @@ SCANNED_ROOTS = (
 
 BANNED_COLUMN_TYPES = (sa.Float, sa.REAL, sa.DOUBLE_PRECISION, sa.Double)
 
+# Modules where `float` is legitimate because they carry no money at all. Each
+# entry needs a reason, and `test_the_float_allowlist_touches_no_money` proves
+# every listed module is genuinely money-free - so the allowlist cannot quietly
+# become the hole the rest of this file exists to prevent.
+FLOAT_PERMITTED: dict[str, str] = {
+    "packages/compliance/config.py": "crawl delays and timeouts, measured in seconds",
+    "packages/compliance/robots.py": "crawl delay declared by robots.txt, in seconds",
+    "packages/compliance/gate.py": "crawl delay carried to the caller, in seconds",
+    "packages/compliance/token.py": "crawl delay recorded on the token, in seconds",
+}
+
+# Anything money-shaped. A module claiming a float exemption may name none of it.
+MONEY_WORDS = frozenset(
+    {
+        "fare", "fares", "price", "prices", "amount", "amounts", "total_fare",
+        "base_fare", "tax", "taxes", "udf", "convenience", "weight", "weights",
+        "index_value", "cost", "currency", "inr", "rupee", "money", "decimal",
+    }
+)
+
 
 def python_files() -> list[Path]:
     found: list[Path] = []
@@ -73,11 +93,50 @@ def test_source_never_names_float() -> None:
     assert scanned, "the float scan found no files to scan, which means it proves nothing"
 
     offences = {
-        str(path.relative_to(REPO_ROOT)): uses
+        rel: uses
         for path in scanned
-        if (uses := float_uses(path))
+        if (rel := str(path.relative_to(REPO_ROOT)).replace("\\", "/")) not in FLOAT_PERMITTED
+        and (uses := float_uses(path))
     }
     assert not offences, f"float found on a money path: {json.dumps(offences, indent=2)}"
+
+
+def test_the_float_allowlist_touches_no_money() -> None:
+    """Every allowlisted module must be genuinely money-free.
+
+    The exemption is for seconds, not rupees. If one of these modules ever grows
+    a fare, a weight or an index value, the exemption stops applying and this
+    test fails before the float can reach it.
+    """
+    violations: dict[str, list[str]] = {}
+    for rel in FLOAT_PERMITTED:
+        path = REPO_ROOT / rel
+        assert path.exists(), f"allowlisted module {rel} does not exist; remove the entry"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        found: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id.lower() in MONEY_WORDS:
+                found.append(f"line {node.lineno}: name {node.id!r}")
+            elif isinstance(node, ast.Attribute) and node.attr.lower() in MONEY_WORDS:
+                found.append(f"line {node.lineno}: attribute {node.attr!r}")
+            elif isinstance(node, ast.arg) and node.arg.lower() in MONEY_WORDS:
+                found.append(f"line {node.lineno}: parameter {node.arg!r}")
+        if found:
+            violations[rel] = found
+    assert not violations, (
+        "a module exempted from the float ban now names money:\n"
+        + json.dumps(violations, indent=2)
+    )
+
+
+def test_the_float_allowlist_stays_small() -> None:
+    """An exemption list that grows without comment is how a rule dies."""
+    assert len(FLOAT_PERMITTED) <= 6, (
+        f"{len(FLOAT_PERMITTED)} modules now claim a float exemption. "
+        "Review whether the money guarantee still holds."
+    )
+    for rel, reason in FLOAT_PERMITTED.items():
+        assert reason.strip(), f"{rel} is exempted with no stated reason"
 
 
 @pytest.mark.parametrize("table_name", sorted(Base.metadata.tables))
