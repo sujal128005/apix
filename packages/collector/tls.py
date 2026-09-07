@@ -18,6 +18,16 @@ There is deliberately no fourth rung. If all three fail, the answer is that we
 cannot reach the host safely and the source is unavailable - which is a fact to
 report, not a check to switch off.
 
+**Trust anchors come from certifi, not the operating system.** ``create_default_
+context()`` reads whatever the host happens to trust, which is neither
+reproducible nor portable: Windows ships many roots on demand, so a root can be
+absent from the local store until something triggers a fetch from Windows
+Update. That is how ``api.mospi.gov.in`` - anchored to ``emSign Root CA - G1``,
+a root certifi has carried for years - can fail verification on a Windows box
+whose own chain engine trusts it perfectly well. Pinning to certifi makes the
+answer the same on a laptop, in CI and on a server, which is what an auditable
+index needs.
+
 Which rung worked is recorded, so the Command Center can show it and a reviewer
 can ask why. Silently succeeding at rung 2 without anyone noticing would be
 almost as bad as rung 4 existing.
@@ -30,6 +40,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Final
+
+import certifi
 
 __all__ = ["TlsAttempt", "TlsLadder", "TlsMode", "build_ssl_context"]
 
@@ -64,7 +76,8 @@ def build_ssl_context(mode: TlsMode, *, ca_bundle: Path | None = None) -> ssl.SS
     asserts that for each mode, so a future edit that relaxes one cannot pass
     review unnoticed.
     """
-    context = ssl.create_default_context()
+    # certifi, explicitly - see the module docstring on why not the OS store.
+    context = ssl.create_default_context(cafile=certifi.where())
     context.check_hostname = True
     context.verify_mode = ssl.CERT_REQUIRED
 
@@ -81,6 +94,9 @@ def build_ssl_context(mode: TlsMode, *, ca_bundle: Path | None = None) -> ssl.SS
                 "data/reference/ before using this rung."
             )
         context.options |= OP_LEGACY_SERVER_CONNECT
+        # Additive: the pinned bundle supplements certifi rather than replacing
+        # it, so pinning one host's anchor cannot quietly narrow trust for every
+        # other host the process talks to.
         context.load_verify_locations(cafile=str(ca_bundle))
 
     return context

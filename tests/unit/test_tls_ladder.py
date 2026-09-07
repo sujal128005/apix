@@ -134,3 +134,42 @@ def test_certificate_verification_is_never_disabled_anywhere() -> None:
         "ADR-016 forbids disabling certificate verification in any environment:\n"
         + "\n".join(offenders)
     )
+
+
+# -- trust anchors are reproducible, not host-dependent ---------------------
+
+
+def test_trust_anchors_come_from_certifi_not_the_host() -> None:
+    """The same certificate must verify identically everywhere.
+
+    ``create_default_context()`` with no cafile reads whatever the host trusts.
+    On Windows that is a local snapshot which omits roots until something
+    triggers an on-demand fetch, so a chain the OS accepts can fail in Python.
+    An index whose values must be reproducible cannot have its network layer
+    depend on which roots a particular laptop happens to have cached.
+    """
+    import certifi
+
+    source = (REPO_ROOT / "packages" / "collector" / "tls.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "create_default_context"
+    ]
+    assert calls, "expected create_default_context to be used"
+    for call in calls:
+        assert any(kw.arg == "cafile" for kw in call.keywords), (
+            f"line {call.lineno}: create_default_context() must be given an explicit "
+            "cafile, or trust becomes host-dependent"
+        )
+
+    # And the bundle we depend on must actually contain the anchor MoSPI uses.
+    bundle = Path(certifi.where()).read_text(encoding="utf-8")
+    assert "emSign Root CA - G1" in bundle, (
+        "certifi no longer carries the root that anchors api.mospi.gov.in; "
+        "the PINNED rung is now required for that host"
+    )
