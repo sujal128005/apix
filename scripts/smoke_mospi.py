@@ -19,11 +19,11 @@ becomes a record.
        ADR-019 argues robots.txt does not govern API access. That argument is
        stronger if we know what it says rather than assuming.
 
-Nothing here is destructive and no credentials are used. It depends on nothing
-but the standard library, so it runs under any Python 3.12 whether or not the
-project's dependencies are installed:
+Nothing here is destructive and no credentials are used. It needs ``certifi``
+(trust anchors come from certifi, not the host store - see collector/tls.py), so
+run it with the project venv:
 
-    py -3.12 scripts/smoke_mospi.py
+    .venv/Scripts/python scripts/smoke_mospi.py
 
 Output goes to docs/evidence/O1-mospi-api.md, which should be committed.
 """
@@ -49,7 +49,7 @@ def _load_tls_module():
     when it is most needed. Importing ``collector`` pulls in the adapter chain
     and on down to SQLAlchemy, so a missing database driver would stop us
     finding out whether we can reach MoSPI at all. Loading the one module by
-    path keeps this script dependent on nothing but the standard library.
+    path keeps the dependency surface to certifi alone.
     """
     path = _REPO / "packages" / "collector" / "tls.py"
     spec = importlib.util.spec_from_file_location("apix_tls_standalone", path)

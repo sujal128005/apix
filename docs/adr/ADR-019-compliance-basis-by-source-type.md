@@ -11,7 +11,11 @@ Phase 4A built a gate in which `BLOCKED_ROBOTS` is terminal, with no override an
 
 Phase 4C then hit the consequence. MoSPI publishes an **official open API** at `api.mospi.gov.in`, an **official Python client** (`nso-india/mospi-esankhyiki`, MIT-licensed), and an **official MCP server**. It is the sanctioned way to obtain CPI data, and Phase 1.5 already established that we must consume it rather than scrape the eSankhyiki SPA.
 
-During Phase 1 research, a compliant automated fetcher was refused by `api.mospi.gov.in`'s robots policy.
+During Phase 1 research, a compliant automated fetcher was refused when trying to read `api.mospi.gov.in`.
+
+**Correction (Phase 4C, O-1 evidence).** That refusal came from the *research tool's own* robots policy, not from MoSPI. Direct measurement on 7 September 2026 found that `api.mospi.gov.in` **publishes no robots.txt at all** — `/robots.txt` returns the site's swagger-ui index page with HTTP 200, a single-page-application soft-404. So robots.txt does not in fact disallow us there.
+
+That weakens the *urgency* of this ADR without weakening its reasoning. The decision below is about applying the right governing document to the right kind of access, and it must hold whether or not a particular host happens to publish a restrictive robots.txt today. A rule that only matters when it is inconvenient is not a rule. Recording the correction also matters on its own terms: the original context statement was wrong, and leaving it uncorrected would mean this ADR rested on a misreading.
 
 So the gate as built would refuse to call the official API of the ministry that set the problem, using that ministry's own published client, on the grounds that its robots.txt discourages crawlers. That is not compliance. It is a category error wearing compliance as a costume.
 

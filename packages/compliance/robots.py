@@ -80,7 +80,7 @@ class RobotsDocument:
         reason, not just the verdict.
         """
         if self.outcome == RobotsOutcome.ABSENT:
-            return True, "no robots.txt (404/410): no restrictions published"
+            return True, "no robots.txt published: no restrictions to apply"
         if self.outcome == RobotsOutcome.FORBIDDEN:
             return False, "robots.txt returned 401/403: rules unverifiable, refusing"
         if self.outcome == RobotsOutcome.UNAVAILABLE:
@@ -158,7 +158,24 @@ def _write_snapshot(source_code: str, body: str, fetched_at: datetime) -> str:
     return str(path.relative_to(REPO_ROOT))
 
 
-def _classify(status: int | None) -> str:
+def _looks_like_html(body: str | None) -> bool:
+    """True when a body is a web page rather than a robots.txt.
+
+    Single-page applications commonly answer every unmatched path with their
+    index document and HTTP 200. ``api.mospi.gov.in/robots.txt`` does exactly
+    that, returning a swagger-ui page. Parsing it as robots.txt yields no
+    directives and therefore allows everything - the right outcome by accident,
+    but the audit row would then read "allowed by robots.txt" for a site that
+    publishes none. A compliance record that states something untrue is worse
+    than one that says "absent".
+    """
+    if not body:
+        return False
+    head = body.lstrip()[:400].lower()
+    return head.startswith(("<!doctype", "<html", "<?xml")) or "<head>" in head
+
+
+def _classify(status: int | None, body: str | None = None) -> str:
     if status is None:
         return RobotsOutcome.UNAVAILABLE
     if status in (404, 410):
@@ -166,7 +183,8 @@ def _classify(status: int | None) -> str:
     if status in (401, 403):
         return RobotsOutcome.FORBIDDEN
     if 200 <= status < 300:
-        return RobotsOutcome.OK
+        # A soft-404: HTTP says OK, the body says "here is a web page".
+        return RobotsOutcome.ABSENT if _looks_like_html(body) else RobotsOutcome.OK
     return RobotsOutcome.UNAVAILABLE
 
 
@@ -210,7 +228,7 @@ class RobotsCache:
             user_agent=self._config.user_agent,
             timeout=self._config.robots_fetch_timeout,
         )
-        outcome = _classify(status)
+        outcome = _classify(status, body)
 
         if outcome == RobotsOutcome.UNAVAILABLE and cached is not None:
             stale_limit = timedelta(days=self._config.robots_stale_max_days)

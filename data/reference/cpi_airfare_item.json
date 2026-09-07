@@ -1,0 +1,37 @@
+{
+  "_comment": "CPI 2024 item identity for air fare. Verified from MoSPI's own API on 2026-09-07 via getCpiFilterByLevelAndBaseYear (358 items returned, matching the Expert Group Report), and confirmed against live getCPIData records. Evidence: docs/evidence/O2-cpi-airfare-item.md and O2b-cpi-airfare-series.md",
+  "_weight_status": "UNKNOWN - deliberately absent. The weight is not exposed by this endpoint and must be read from Annexure 5.3 of the Expert Group Report, with two independent sources agreeing before it is recorded. A plausible but wrong weight would put an unquestioned number on the Methodology page.",
+  "base_year": "2024",
+  "item_code": 294,
+  "item_name": "Airfare",
+  "sub_class_code": 125,
+  "class_code": 58,
+  "group_code": 24,
+  "division_code": 7,
+  "division_name": "Transport",
+  "division_weight_combined": 8.796,
+  "division_weight_rural": 8.644,
+  "division_weight_urban": 8.985,
+  "division_weight_source": "MoSPI FAQs on CPI 2024 Series, Q39",
+  "item_weight_combined": null,
+  "verified_on": "2026-09-07",
+  "verified_via": "api.mospi.gov.in/api/cpi/getCpiFilterByLevelAndBaseYear",
+  "notes": [
+    "Sub-class 125 is 'Passenger transport by air, DOMESTIC' - MoSPI splits domestic from international at sub-class level. APIx collects domestic routes only, so this is an exact comparator rather than an approximate one.",
+    "Airfare occupies class 58 and sub-class 125 alone; it is not pooled with rail (283/class 56), bus and taxi (284-293/class 57) or steamer (295/class 59).",
+    "Records carry an 'imputation' flag (Y/N) per row, which is why normalised_quote mirrors the field name exactly.",
+    "Rural, Urban and Combined are published separately. APIx compares against Combined.",
+    "CPI 2024 collects domestic airfare at a 21-day advance-purchase window (Expert Group Report 3.9), which is why APIx carries a T+21 bucket flagged cpi_comparable.",
+    "CPI 2024 is based at 2024=100; APIx is based on its own first 30 collection days. Levels are NOT comparable - only movements.",
+    "Observed volatility justifies the project premise: Combined YoY inflation was 10.14% in June 2026 and 22.94% in July 2026. A monthly series cannot show what moves inside a month."
+  ],
+  "coicop_code": "07.3.3.1.2.01",
+  "group_name": "Passenger transport services",
+  "class_name": "Passenger transport by air",
+  "sub_class_name": "Passenger transport by air, domestic",
+  "sectors_available": [
+    "Rural",
+    "Urban",
+    "Combined"
+  ]
+}

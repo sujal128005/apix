@@ -84,7 +84,7 @@ def test_absent_robots_means_no_restrictions(status: int) -> None:
     doc = cache.get("s", "https://example.com", now=NOW)
     assert doc.outcome == RobotsOutcome.ABSENT
     allowed, rule = doc.allows("/air/search", UA)
-    assert allowed and rule is not None and "404" in rule
+    assert allowed and rule is not None and "no robots.txt published" in rule
 
 
 @pytest.mark.parametrize("status", [401, 403])
@@ -279,3 +279,57 @@ def test_base_url_reduction() -> None:
     assert base_url_of("https://example.com/a/b?c=1") == "https://example.com"
     with pytest.raises(ValueError, match="Cannot derive"):
         base_url_of("not-a-url")
+
+
+# -- soft-404s: HTTP says OK, the body says "web page" ---------------------
+
+SPA_INDEX = (
+    '<!doctype html><html lang="en"><head><meta charset="UTF-8">'
+    "<title>Ministry of Statistics and Program Implementation</title>"
+    '<script defer src="/static/js/main.js"></script></head>'
+    '<body><div id="root"></div></body></html>'
+)
+
+
+def test_an_html_page_returned_for_robots_is_treated_as_absent() -> None:
+    """api.mospi.gov.in answers /robots.txt with its swagger-ui index page.
+
+    Parsing that as robots.txt yields no directives and so allows everything -
+    the right outcome, reached by accident. The audit row would then claim
+    "allowed by robots.txt" for a host that publishes none, which is a false
+    statement in a compliance record.
+    """
+    cache, _ = _cache(200, SPA_INDEX)
+    doc = cache.get("mospi_cpi", "https://example.com", now=NOW)
+
+    assert doc.outcome == RobotsOutcome.ABSENT
+    allowed, rule = doc.allows("/api/cpi/getCpiBaseYear", UA)
+    assert allowed is True
+    assert rule is not None and "no robots.txt published" in rule
+    assert "allowed by robots.txt" not in rule
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<!DOCTYPE html><html><body>hi</body></html>",
+        "  \n<html><head></head></html>",
+        '<?xml version="1.0"?><rss></rss>',
+    ],
+)
+def test_various_page_bodies_are_recognised_as_not_robots(body: str) -> None:
+    cache, _ = _cache(200, body)
+    assert cache.get("s", "https://example.com", now=NOW).outcome == RobotsOutcome.ABSENT
+
+
+def test_a_real_robots_file_is_still_parsed_normally() -> None:
+    """The soft-404 check must not swallow genuine directives."""
+    cache, _ = _cache(200, MMT_STYLE)
+    doc = cache.get("s", "https://example.com", now=NOW)
+    assert doc.outcome == RobotsOutcome.OK
+    assert doc.allows("/air/search", UA)[0] is False
+
+
+def test_a_comment_only_robots_file_is_not_mistaken_for_a_page() -> None:
+    cache, _ = _cache(200, "# nothing to declare\n")
+    assert cache.get("s", "https://example.com", now=NOW).outcome == RobotsOutcome.OK
