@@ -18,6 +18,7 @@ from pipeline.normalise import (
     normalise_payload,
     score_quality,
 )
+from pipeline.orchestrator import IndexRun, RouteOutcome, compute_index_for_date
 from pipeline.weights import (
     WeightCandidate,
     WeightSet,
@@ -29,9 +30,11 @@ from pipeline.weights import (
 
 __all__ = [
     "ImputationResult",
+    "IndexRun",
     "NormalisationError",
     "NormalisedFields",
     "ObservedQuote",
+    "RouteOutcome",
     "StratumKey",
     "StratumState",
     "WeightCandidate",
@@ -40,6 +43,7 @@ __all__ = [
     "build_equal_weights",
     "build_from_traffic",
     "build_matched_pairs",
+    "compute_index_for_date",
     "group_by_stratum",
     "imputation_rate",
     "impute_missing",
