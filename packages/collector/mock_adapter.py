@@ -134,7 +134,13 @@ class MockAdapter(SourceAdapter):
     def normalize(self, quote: ParsedQuote) -> dict[str, Any]:
         """Rename source fields to the common shape. No cleaning here."""
         payload = quote.payload
+        components = {
+            key: payload[source]
+            for key, source in (("base_fare", "baseFare"), ("taxes", "taxes"), ("udf", "udf"))
+            if payload.get(source) is not None
+        }
         return {
+            **components,
             "carrier": payload["carrier"],
             "flight_no": payload["flightNumber"],
             "total_fare": payload["totalAmount"],

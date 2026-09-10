@@ -22,6 +22,7 @@ correct order for those two events to happen in.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -82,6 +83,23 @@ CARRIER_OFFSET = {
 CARRIERS = [("6E", "SAVER"), ("AI", "ECOVALUE"), ("SG", "SAVER"), ("QP", "AKASAVALUE")]
 
 
+def _route_character(route: str) -> tuple[int, Decimal, Decimal]:
+    """A stable per-route phase, weekend amplitude and trend.
+
+    Without this every route moves identically, because the same multipliers
+    apply everywhere - and twenty identical index values look like hardcoded
+    output rather than a working index. Real routes differ: a business corridor
+    peaks midweek, a leisure route at weekends, and they do not share a trend.
+
+    Derived from the route code so it is deterministic, not random.
+    """
+    seed = sum(ord(c) * (i + 1) for i, c in enumerate(route))
+    phase = seed % 7
+    amplitude = Decimal("0.03") + (Decimal(seed % 9) * Decimal("0.008"))  # 3%..9.4%
+    trend = Decimal("0.0015") + (Decimal(seed % 5) * Decimal("0.0018"))   # 0.15%..0.87%/day
+    return phase, amplitude, trend
+
+
 def synthetic_fare(route: str, bucket: str, carrier: str, day: int, seat: int) -> Decimal:
     """A deterministic fare. Same inputs, same rupees, every run.
 
@@ -93,11 +111,15 @@ def synthetic_fare(route: str, bucket: str, carrier: str, day: int, seat: int) -
     Deterministic rather than random for the same reason. Reproducibility is the
     property the project rests on, so its own demo data should have it too.
     """
+    phase, amplitude, daily_trend = _route_character(route)
     base = Decimal(ROUTE_BASE.get(route, 5000)) * BUCKET_MULTIPLIER.get(bucket, Decimal("1.00"))
-    trend = Decimal("1.00") + (Decimal(day) * Decimal("0.004"))
-    weekly = Decimal("1.06") if day % 7 in (4, 5) else Decimal("1.00")
+    trend = Decimal("1.00") + (Decimal(day) * daily_trend)
+    peak = (day + phase) % 7 in (5, 6)
+    weekly = (Decimal("1.00") + amplitude) if peak else Decimal("1.00")
+    # A short-lived demand spike, at a different time on each route.
+    spike = Decimal("1.11") if (day + phase) % 11 == 3 else Decimal("1.00")
     ladder = Decimal("1.00") + (Decimal(seat) * Decimal("0.035"))
-    rupees = base * trend * weekly * CARRIER_OFFSET[carrier] * ladder
+    rupees = base * trend * weekly * spike * CARRIER_OFFSET[carrier] * ladder
     return rupees.quantize(Decimal("0.01"))
 
 
@@ -145,6 +167,30 @@ def ensure_weight_set(session: Session) -> WeightSetVersion:
     return version
 
 
+def _offer_json(carrier: str, brand: str, flight: int, fare: Decimal) -> str:
+    """One offer, with its fare decomposed.
+
+    Real sources usually disclose base fare, taxes and UDF separately, so the
+    demo does too - otherwise every observation would be PARTIAL and the
+    component-confidence machinery would never be exercised. One offer in five
+    omits the breakdown, which is also realistic and keeps the PARTIAL path
+    visible on the dashboard.
+    """
+    if flight % 5 == 0:
+        return (
+            f'{{"carrier":"{carrier}","flightNumber":"{carrier}{flight}",'
+            f'"totalAmount":"{fare}","currencyCode":"INR","fareBrand":"{brand}","stops":0}}'
+        )
+    base = (fare * Decimal("0.78")).quantize(Decimal("0.01"))
+    taxes = (fare * Decimal("0.16")).quantize(Decimal("0.01"))
+    udf = (fare - base - taxes).quantize(Decimal("0.01"))
+    return (
+        f'{{"carrier":"{carrier}","flightNumber":"{carrier}{flight}",'
+        f'"totalAmount":"{fare}","currencyCode":"INR","fareBrand":"{brand}","stops":0,'
+        f'"baseFare":"{base}","taxes":"{taxes}","udf":"{udf}"}}'
+    )
+
+
 class CollectionRefusedError(RuntimeError):
     """Every search in a run was refused. Reported loudly, not as an empty day."""
 
@@ -174,13 +220,12 @@ class DemoAdapter(MockAdapter):
         assert self._spec is not None
         spec = self._spec
         offers = ",".join(
-            '{{"carrier":"{c}","flightNumber":"{c}{n}","totalAmount":"{amt}",'
-            '"currencyCode":"INR","fareBrand":"{b}","stops":0}}'.format(
-                c=carrier,
-                n=2000 + seat * 11 + abs(hash(spec.route_code)) % 90,
-                amt=synthetic_fare(spec.route_code, spec.bucket_code, carrier,
-                                   self.day_index, seat),
-                b=brand,
+            _offer_json(
+                carrier,
+                brand,
+                2000 + seat * 11 + (sum(ord(c) for c in spec.route_code) % 90),
+                synthetic_fare(spec.route_code, spec.bucket_code, carrier,
+                               self.day_index, seat),
             )
             for seat, (carrier, brand) in enumerate(CARRIERS)
         )
@@ -361,6 +406,12 @@ def main() -> int:
     parser.add_argument("--days", type=int, default=21)
     parser.add_argument("--reset", action="store_true", help="clear prior demo data first")
     args = parser.parse_args()
+
+    # The orchestrator logs a warning every time the headline is refused, which
+    # is correct behaviour and useless output: it happens on every day of a demo
+    # run and buries the per-day report it interleaves with. Said once, in the
+    # summary, is enough.
+    logging.getLogger("apix.pipeline").setLevel(logging.ERROR)
 
     settings = DbSettings.from_env()
     engine = sa.create_engine(settings.app_url(), future=True)

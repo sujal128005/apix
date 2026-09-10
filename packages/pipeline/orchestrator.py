@@ -171,13 +171,14 @@ def compute_index_for_date(
             "basket; run scripts/run_demo_pipeline.py --ensure-weights or seed one."
         )
 
-    weights = dict(
-        session.execute(
+    weights: dict[str, Decimal] = {
+        row.code: row.weight
+        for row in session.execute(
             sa.select(Route.code, RouteWeight.weight)
             .join(Route, Route.id == RouteWeight.route_id)
             .where(RouteWeight.weight_set_version_id == weight_set.id)
-        ).all()
-    )
+        )
+    }
     routes = {r.id: r for r in session.execute(sa.select(Route)).scalars()}
     buckets = {b.id: b for b in session.execute(sa.select(LeadTimeBucket)).scalars()}
 

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead-time Price Profile — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="chrome"></div>
+
+<main>
+  <div class="banner">
+    <strong>This is a price profile, not an elasticity.</strong>
+    No causal elasticity is estimated. What is shown is the observed fare level at
+    each booking horizon on a single collection date. Calling it elasticity would
+    claim considerably more than the data supports, so the name is not used
+    anywhere in APIx.
+  </div>
+
+  <section>
+    <h2>Advance-purchase windows</h2>
+    <div class="body">
+      <label for="route">Scope&nbsp;</label>
+      <select id="route"><option value="">All routes</option></select>
+      <span style="margin-left:18px;font-size:13px;color:var(--ink-faint)" id="as-of"></span>
+    </div>
+  </section>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Mean fare by booking horizon</h2>
+    <div id="chart"><div class="empty">Loading…</div></div>
+    <div class="meta" id="chart-meta"></div>
+  </section>
+
+  <section>
+    <h2>Detail</h2>
+    <div id="detail"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      T+1, T+7, T+15, T+30 and T+45 are required by Problem Statement 26056.
+      <strong>T+21 was added by us</strong>: the MoSPI Expert Group Report (January 2026,
+      section 3.9) records that CPI 2024 collects domestic airfare at a 21-day
+      advance-purchase window, making it the one bucket directly comparable with the
+      official index.
+    </div>
+  </section>
+</main>
+
+<footer>
+  Fare levels are the arithmetic mean of accepted observations on the stated date.
+  Index construction uses the geometric mean (Jevons) &mdash; see
+  <code>/api/v1/methodology</code>.
+</footer>
+
+<script src="/static/apix.js"></script>
+<script>
+document.getElementById("chrome").innerHTML = masthead("/lead-time");
+
+async function load(route) {
+  const r = await get("/api/v1/lead-time-profile" + (route ? "?route=" + route : ""));
+  const d = r.data, buckets = d.buckets;
+  document.getElementById("as-of").textContent = d.as_of ? "as at " + d.as_of : "";
+
+  if (!buckets.length) {
+    document.getElementById("chart").innerHTML =
+      '<div class="empty">No observations. Run scripts/run_demo_pipeline.py.</div>';
+    return;
+  }
+
+  const near = buckets.find(b => b.bucket === "T1");
+  const far = buckets.find(b => b.bucket === "T45");
+  const cpi = buckets.find(b => b.cpi_comparable);
+  const premium = near && far ? (near.mean_fare / far.mean_fare - 1) * 100 : null;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Booking tomorrow (T+1)</div>
+      <div class="value">${near ? money(near.mean_fare) : "—"}</div>
+      <div class="note">${near ? near.relative_to_t21 + "% of the T+21 fare" : ""}</div></div>
+    <div class="stat"><div class="label">CPI-comparable window (T+21)</div>
+      <div class="value">${cpi ? money(cpi.mean_fare) : "—"}</div>
+      <div class="note">the horizon CPI 2024 collects at</div></div>
+    <div class="stat"><div class="label">Booking six weeks out (T+45)</div>
+      <div class="value">${far ? money(far.mean_fare) : "—"}</div>
+      <div class="note">${far ? far.relative_to_t21 + "% of the T+21 fare" : ""}</div></div>
+    <div class="stat"><div class="label">Last-minute premium</div>
+      <div class="value">${premium === null ? "—" : "+" + premium.toFixed(0) + "%"}</div>
+      <div class="note">T+1 against T+45</div></div>`;
+
+  document.getElementById("chart").innerHTML = barChart(
+    buckets.map(b => ({x: b.bucket, sub: b.days + " days", y: b.mean_fare, cpi: b.cpi_comparable})),
+    {highlight: b => b.cpi});
+  document.getElementById("chart-meta").innerHTML =
+    `Gold bar marks T+21. ${esc(d.baseline_note)} Scope: <strong>${esc(d.route)}</strong>.`;
+
+  document.getElementById("detail").innerHTML = table([
+    {label: "Bucket", render: x => `<code>${esc(x.bucket)}</code>` +
+      (x.cpi_comparable ? ' <span class="tag off">CPI comparable</span>' : "")},
+    {label: "Days ahead", num: true, render: x => x.days},
+    {label: "Quotes", num: true, render: x => x.quotes},
+    {label: "Lowest", num: true, render: x => money(x.min_fare)},
+    {label: "Mean", num: true, render: x => money(x.mean_fare)},
+    {label: "Highest", num: true, render: x => money(x.max_fare)},
+    {label: "vs T+21", num: true, render: x => x.relative_to_t21 === null ? "—" : x.relative_to_t21.toFixed(1) + "%"},
+  ], buckets, x => x.cpi_comparable ? "highlight" : "");
+}
+
+(async function () {
+  const routes = await get("/api/v1/index/routes?limit=500");
+  const codes = [...new Set(routes.data.map(r => r.route))].filter(Boolean).sort();
+  const select = document.getElementById("route");
+  select.innerHTML += codes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  select.addEventListener("change", () => load(select.value));
+  await load("");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Explorer — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="chrome"></div>
+
+<main>
+  <section>
+    <h2>Route explorer</h2>
+    <div class="body">
+      <label for="route">Route&nbsp;</label>
+      <select id="route"></select>
+      <span id="weight-note" style="margin-left:18px;font-size:13px;color:var(--ink-faint)"></span>
+    </div>
+  </section>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Route index &mdash; daily, chained (Jevons short)</h2>
+    <div id="chart"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Index, base = 100 at first observation. The vertical axis does not start at
+      zero: an index anchored near 100 would otherwise render as a flat line and
+      hide the movement this chart exists to show.
+    </div>
+  </section>
+
+  <section>
+    <h2>Fare by advance-purchase window &mdash; this route</h2>
+    <div id="leadtime"><div class="empty">Loading…</div></div>
+    <div class="meta" id="leadtime-meta"></div>
+  </section>
+
+  <section>
+    <h2>Daily observations</h2>
+    <div id="history"><div class="empty">Loading…</div></div>
+    <div class="meta" id="history-meta"></div>
+  </section>
+</main>
+
+<footer>
+  Every figure is traceable to an individual fare quote, its source and its
+  collection timestamp. Methodology and labelled assumptions:
+  <code>/api/v1/methodology</code>
+</footer>
+
+<script src="/static/apix.js"></script>
+<script>
+document.getElementById("chrome").innerHTML = masthead("/routes");
+
+async function loadRoute(code) {
+  const [detail, profile] = await Promise.all([
+    get("/api/v1/routes/" + code),
+    get("/api/v1/lead-time-profile?route=" + code),
+  ]);
+  const d = detail.data, h = d.history;
+
+  const w = d.weight;
+  document.getElementById("weight-note").innerHTML = w
+    ? `Basket weight <strong>${idx(w.value, 6)}</strong> &middot;
+       evidence rung ${w.evidence_rung} &mdash; ${esc(w.rung_meaning)}
+       ${w.is_proxy ? '<span class="tag sim">PROXY</span>' : ""}`
+    : "No weight assigned.";
+
+  const latest = h.length ? h[h.length - 1] : null;
+  const first = h.length ? h[0] : null;
+  const total = latest && first ? latest.index_value - first.index_value : null;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Current route index</div>
+      <div class="value">${latest ? idx(latest.index_value) : "—"}</div>
+      <div class="note">${latest ? "as at " + esc(latest.obs_date) : ""}</div></div>
+    <div class="stat"><div class="label">Day-on-day</div>
+      <div class="value">${latest ? pct(latest.movement) : "—"}</div>
+      <div class="note">index points</div></div>
+    <div class="stat"><div class="label">Since first observation</div>
+      <div class="value">${total === null ? "—" : pct(total)}</div>
+      <div class="note">${h.length} day(s) observed</div></div>
+    <div class="stat"><div class="label">Quotes behind latest</div>
+      <div class="value">${latest ? latest.input_quote_count : "—"}</div>
+      <div class="note">${latest ? latest.excluded_count + " excluded as outliers" : ""}</div></div>`;
+
+  document.getElementById("chart").innerHTML = lineChart(
+    h.map(p => ({x: p.obs_date.slice(5), y: p.index_value})));
+
+  const buckets = profile.data.buckets;
+  document.getElementById("leadtime").innerHTML = barChart(
+    buckets.map(b => ({x: b.bucket, sub: b.days + " days", y: b.mean_fare, cpi: b.cpi_comparable})),
+    {highlight: b => b.cpi});
+  document.getElementById("leadtime-meta").textContent = profile.data.baseline_note;
+
+  document.getElementById("history").innerHTML = table([
+    {label: "Date", render: x => esc(x.obs_date)},
+    {label: "Index", num: true, render: x => idx(x.index_value)},
+    {label: "Movement", num: true, render: x => x.movement === null ? "—" : pct(x.movement)},
+    {label: "Quotes", num: true, render: x => x.input_quote_count},
+    {label: "Excluded", num: true, render: x => x.excluded_count},
+  ], h.slice().reverse());
+
+  document.getElementById("history-meta").textContent =
+    `Methodology ${detail.meta.methodology_version} · weight set ${detail.meta.weight_set_version} · ` +
+    `mode ${detail.meta.mode}`;
+}
+
+(async function () {
+  const routes = await get("/api/v1/index/routes?limit=500");
+  const codes = [...new Set(routes.data.map(r => r.route))].filter(Boolean).sort();
+  const select = document.getElementById("route");
+  select.innerHTML = codes.map(c => `<option>${esc(c)}</option>`).join("");
+  select.addEventListener("change", () => loadRoute(select.value));
+  if (codes.length) await loadRoute(codes[0]);
+  else document.getElementById("chart").innerHTML =
+    '<div class="empty">No route indices computed yet. Run scripts/run_demo_pipeline.py.</div>';
+})();
+</script>
+</body>
+</html>

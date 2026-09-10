@@ -14,7 +14,7 @@ a judge and the numbers.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -31,7 +31,7 @@ from schemas.models.collection import ComplianceDecision
 from schemas.models.derived import NormalisedQuote
 from schemas.models.indexing import IndexObservation
 from schemas.models.reference import LeadTimeBucket, Route, Source
-from schemas.models.versioning import MethodologyVersion, WeightSetVersion
+from schemas.models.versioning import MethodologyVersion, RouteWeight, WeightSetVersion
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -194,6 +194,148 @@ def index_routes(limit: int = Query(default=100, le=500)) -> dict[str, Any]:
                 }
                 for obs, code in rows
             ],
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/routes/{code}", tags=["routes"])
+def route_detail(code: str) -> dict[str, Any]:
+    """One route: its weight and the evidence behind it, plus its index history.
+
+    The weight's evidence rung is returned alongside the weight itself, never
+    separately. A weight without its provenance looks identical to a sourced
+    one, and ours are currently rung 4.
+    """
+    with _Session() as session:
+        route = session.execute(
+            sa.select(Route).where(Route.code == code.upper())
+        ).scalar_one_or_none()
+        if route is None:
+            raise HTTPException(status_code=404, detail=f"No route {code!r}.")
+
+        weight = session.execute(
+            sa.select(RouteWeight)
+            .where(RouteWeight.route_id == route.id)
+            .order_by(RouteWeight.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+
+        history = session.execute(
+            sa.select(IndexObservation)
+            .where(IndexObservation.level == IndexLevel.ROUTE)
+            .where(IndexObservation.ref_id == route.id)
+            .order_by(IndexObservation.obs_date)
+        ).scalars().all()
+
+        return {
+            "data": {
+                "route": route.code,
+                "origin": route.code.split("-")[0],
+                "destination": route.code.split("-")[1],
+                "directional": route.directional,
+                "weight": None
+                if weight is None
+                else {
+                    "value": _decimal(weight.weight),
+                    "evidence_rung": weight.evidence_rung,
+                    "evidence_ref": weight.evidence_ref,
+                    "is_proxy": weight.evidence_rung >= 3,
+                    "rung_meaning": {
+                        1: "DGCA per-city-pair passenger volumes",
+                        2: "DGCA popular-routes list",
+                        3: "Airport-throughput proxy",
+                        4: "Equal weights - not derived from traffic data",
+                    }.get(weight.evidence_rung, "unknown"),
+                },
+                "history": [
+                    {
+                        "obs_date": row.obs_date.isoformat(),
+                        "index_value": _decimal(row.index_value),
+                        "movement": _decimal(
+                            row.index_value - row.prev_index_value
+                            if row.prev_index_value is not None
+                            else None
+                        ),
+                        "input_quote_count": row.input_quote_count,
+                        "excluded_count": row.excluded_count,
+                    }
+                    for row in history
+                ],
+            },
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/lead-time-profile", tags=["routes"])
+def lead_time_profile(route: str | None = None) -> dict[str, Any]:
+    """Fare level by advance-purchase window.
+
+    Deliberately a *profile*, not an elasticity. No causal elasticity is
+    estimated here - this is the observed price level at each booking horizon,
+    and calling it elasticity would claim a great deal more than the data
+    supports.
+
+    T+21 is flagged because CPI 2024 collects domestic airfare at a 21-day
+    advance-purchase window (Expert Group Report 3.9), making it the one bucket
+    directly comparable to the official index.
+    """
+    with _Session() as session:
+        latest = session.execute(
+            sa.select(sa.func.max(NormalisedQuote.collected_date))
+        ).scalar_one_or_none()
+        if latest is None:
+            return {"data": {"as_of": None, "buckets": []}, "meta": _meta(session)}
+
+        statement = (
+            sa.select(
+                LeadTimeBucket.code,
+                LeadTimeBucket.days,
+                LeadTimeBucket.cpi_comparable,
+                sa.func.count().label("quotes"),
+                sa.func.min(NormalisedQuote.total_fare).label("min_fare"),
+                sa.func.avg(NormalisedQuote.total_fare).label("mean_fare"),
+                sa.func.max(NormalisedQuote.total_fare).label("max_fare"),
+            )
+            .join(NormalisedQuote, NormalisedQuote.bucket_id == LeadTimeBucket.id)
+            .where(NormalisedQuote.collected_date == latest)
+            .group_by(LeadTimeBucket.code, LeadTimeBucket.days, LeadTimeBucket.cpi_comparable)
+            .order_by(LeadTimeBucket.days)
+        )
+        if route:
+            statement = statement.join(
+                Route, Route.id == NormalisedQuote.route_id
+            ).where(Route.code == route.upper())
+
+        rows = session.execute(statement).all()
+        baseline = next((r.mean_fare for r in rows if r.code == "T21"), None)
+
+        return {
+            "data": {
+                "as_of": latest.isoformat(),
+                "route": route.upper() if route else "all routes",
+                "baseline_bucket": "T21",
+                "baseline_note": (
+                    "Indexed to T+21 because CPI 2024 collects domestic airfare at a "
+                    "21-day advance-purchase window (Expert Group Report 3.9)."
+                ),
+                "buckets": [
+                    {
+                        "bucket": row.code,
+                        "days": row.days,
+                        "cpi_comparable": row.cpi_comparable,
+                        "quotes": row.quotes,
+                        "min_fare": _decimal(row.min_fare),
+                        "mean_fare": _decimal(row.mean_fare),
+                        "max_fare": _decimal(row.max_fare),
+                        "relative_to_t21": (
+                            None
+                            if not baseline
+                            else round(float(row.mean_fare / baseline) * 100, 1)
+                        ),
+                    }
+                    for row in rows
+                ],
+            },
             "meta": _meta(session),
         }
 
@@ -365,9 +507,146 @@ def benchmark() -> dict[str, Any]:
     }
 
 
+@app.get("/api/v1/backtest", tags=["backtest"])
+def backtest() -> dict[str, Any]:
+    """Validation against the official CPI airfare index (ADR-015, Tier 2).
+
+    Reports metrics only when enough months align. When they do not - which is
+    the present state, APIx having begun after the published benchmark ends -
+    the shortfall is reported instead. A validation endpoint that always returns
+    a number teaches its reader to stop looking at it.
+    """
+    import json
+
+    from pipeline.backtest import MonthlyPoint, compare_movements, monthly_average
+
+    path = Path(__file__).resolve().parents[2] / "data" / "reference" / "cpi_airfare_benchmark.json"
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No benchmark file. Run scripts/fetch_cpi_airfare_series.py first.",
+        )
+
+    months = {
+        name: number
+        for number, name in enumerate(
+            ("January", "February", "March", "April", "May", "June", "July",
+             "August", "September", "October", "November", "December"),
+            start=1,
+        )
+    }
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    benchmark = [
+        MonthlyPoint(
+            year=int(row["year"]),
+            month=months[str(row["month"]).strip().title()],
+            value=Decimal(str(row["index"])),
+        )
+        for row in payload.get("rows", [])
+        if row.get("sector") == "Combined"
+    ]
+    benchmark.sort(key=lambda p: (p.year, p.month))
+
+    with _Session() as session:
+        daily = [
+            (row.obs_date, row.index_value)
+            for row in session.execute(
+                sa.select(IndexObservation)
+                .where(IndexObservation.level == IndexLevel.HEADLINE)
+                .order_by(IndexObservation.obs_date)
+            ).scalars()
+        ]
+        headline_available = bool(daily)
+
+        # With no published headline, the route indices are what exists. They are
+        # a weaker comparator and the response says so rather than quietly
+        # substituting one series for another.
+        if not daily:
+            rows = session.execute(
+                sa.select(IndexObservation.obs_date, IndexObservation.index_value)
+                .where(IndexObservation.level == IndexLevel.ROUTE)
+                .order_by(IndexObservation.obs_date)
+            ).all()
+            grouped: dict[date, list[Decimal]] = {}
+            for obs_date, value in rows:
+                grouped.setdefault(obs_date, []).append(value)
+            daily = [
+                (day, sum(values, Decimal(0)) / len(values))
+                for day, values in sorted(grouped.items())
+            ]
+
+        apix_monthly = monthly_average(daily)
+        result = compare_movements(apix_monthly, benchmark)
+
+        return {
+            "data": {
+                "tier": 2,
+                "benchmark": {
+                    "item": payload.get("item"),
+                    "source_url": payload.get("source_url"),
+                    "months": len(benchmark),
+                    "range": (
+                        f"{benchmark[0].label} to {benchmark[-1].label}" if benchmark else None
+                    ),
+                },
+                "apix": {
+                    "series": "headline" if headline_available else "mean of route indices",
+                    "series_note": (
+                        None
+                        if headline_available
+                        else "No headline index is published (simulated data). The mean "
+                        "of route indices is shown as a weaker stand-in and is labelled "
+                        "as such."
+                    ),
+                    "months": len(apix_monthly),
+                    "range": (
+                        f"{apix_monthly[0].label} to {apix_monthly[-1].label}"
+                        if apix_monthly
+                        else None
+                    ),
+                },
+                "sufficient": result.sufficient,
+                "limitation": result.limitation,
+                "aligned_months": [
+                    {
+                        "month": m.label,
+                        "apix_movement_pct": float(m.apix_movement_pct),
+                        "benchmark_movement_pct": float(m.benchmark_movement_pct),
+                        "error": float(m.error),
+                        "same_direction": m.same_direction,
+                    }
+                    for m in result.aligned
+                ],
+                "metrics": None
+                if not result.sufficient
+                else {
+                    "mae_pct_points": float(result.mae or 0),
+                    "rmse_pct_points": float(result.rmse or 0),
+                    "directional_agreement_pct": float(result.directional_agreement or 0),
+                },
+                "ps_requirement_note": (
+                    "PS 26056 asks for back-testing against publicly available DGCA "
+                    "monthly average-fare data. Research found no such public series: "
+                    "DGCA's Tariff Monitoring Unit covers 78 routes monthly but does "
+                    "not publish a downloadable time series. This comparison uses the "
+                    "official CPI 2024 domestic-airfare index instead (ADR-015)."
+                ),
+            },
+            "meta": _meta(session),
+        }
+
+
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/routes", include_in_schema=False)
+    def routes_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "routes.html")
+
+    @app.get("/lead-time", include_in_schema=False)
+    def lead_time_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "lead-time.html")
