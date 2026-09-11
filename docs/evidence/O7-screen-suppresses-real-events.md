@@ -97,8 +97,36 @@ This is a methodology change and is **not yet implemented**. It needs a new
 `methodology_version`, recomputation, and an entry on the Methodology page
 explaining why the screen changed.
 
-## Status
+## Resolved — methodology 1.1.0
 
-**Open.** Recorded here so the current behaviour is not mistaken for a settled
-choice. The screen in force today is `MAD, k = 3.5`, and on this evidence it is
-the wrong instrument for this measurement.
+Option 3 implemented on 12 September 2026.
+
+**What changed.** Statistically extreme observations stay in the index and are
+counted. Only *impossible* relatives are removed — outside 0.01x to 100x, which
+is a misplaced decimal or a parse failure rather than a market event. Scenario C
+now reports **120.09 with one flagged observation** where 1.0.0 reported
+100.000 and no movement at all.
+
+**An unexpected result.** Re-running the sensitivity analysis under 1.1.0:
+
+| Threshold | Mean index | Rejected |
+|---|---|---|
+| k = 2.5 | 110.2337 | 0 |
+| k = 3.0 | 110.2337 | 0 |
+| k = 3.5 | 110.2337 | 0 |
+| k = 4.0 | 110.2337 | 0 |
+| k = 5.0 | 110.2337 | 0 |
+| no screening | 110.2337 | 0 |
+
+**The threshold no longer affects the published number at all.** Under 1.0.0,
+`k` silently moved the index; the sensitivity analysis existed to measure by how
+much. Under 1.1.0 it governs only what is *counted and reported*, so the
+question "why 3.5?" stops being a question about the index and becomes a
+question about how sensitive the Data Quality page should be.
+
+That is a better place for an arbitrary constant to live. A judge can disagree
+with 3.5 without disagreeing with any published figure.
+
+**Both versions remain testable.** `ScreenMode.REJECT` is retained and the 1.0.0
+golden values are still asserted, so a methodology revision can never be
+confused with a correction.

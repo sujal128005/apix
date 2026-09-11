@@ -40,12 +40,44 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 __all__ = [
+    "MAX_PLAUSIBLE_RELATIVE",
+    "MIN_PLAUSIBLE_RELATIVE",
     "ElementaryResult",
     "MatchedPair",
     "OutlierVerdict",
+    "ScreenMode",
     "jevons_short",
     "mad_screen",
 ]
+
+
+class ScreenMode:
+    """What the screen does with a statistically extreme observation.
+
+    ``REJECT`` was methodology 1.0.0. A sensitivity analysis then measured it
+    erasing genuine price events: a tripled fare in a six-observation stratum was
+    discarded and the index reported that nothing had happened. The screen could
+    not tell a data error from a last-seat fare, because statistically they are
+    the same thing - a value far from its neighbours.
+
+    ``FLAG`` is methodology 1.1.0. Extreme observations stay in the index and are
+    counted, so a reader can see when a movement was driven by one unusual fare.
+    Only *impossible* values are removed, on plausibility grounds rather than on
+    being surprising. That is what outlier screening is for in price statistics:
+    catching a parse failure or a misplaced decimal, not smoothing volatility the
+    index exists to observe.
+    """
+
+    REJECT = "reject"
+    FLAG = "flag"
+
+
+#: Bounds on a period-on-period fare relative. Outside these a value is not an
+#: unusual price, it is a broken one - a decimal in the wrong place, a currency
+#: mix-up, a parse that captured the wrong element. A fare that falls to a
+#: hundredth or rises a hundredfold overnight is not a market event.
+MIN_PLAUSIBLE_RELATIVE = Decimal("0.01")
+MAX_PLAUSIBLE_RELATIVE = Decimal("100")
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +100,7 @@ class MatchedPair:
 
 @dataclass(frozen=True, slots=True)
 class OutlierVerdict:
-    """Why one pair was kept or rejected. Written to cleaning_event."""
+    """Why one pair was kept, flagged or removed. Written to cleaning_event."""
 
     key: str
     kept: bool
@@ -76,6 +108,12 @@ class OutlierVerdict:
     threshold: Decimal | None
     rule_id: str
     reason: str
+    flagged: bool = False
+    """True when the observation is statistically extreme but was *kept*.
+
+    A flagged observation contributes to the index and is counted on the Data
+    Quality page. Nothing is hidden: a reader can see how much of a movement
+    came from unusual fares."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +125,10 @@ class ElementaryResult:
     accepted: int
     rejected: int
     geometric_mean_relative: Decimal | None
+    flagged: int = 0
+    """Extreme observations kept in the index and counted (methodology 1.1.0)."""
+    implausible: int = 0
+    """Observations removed as impossible rather than merely unusual."""
     verdicts: tuple[OutlierVerdict, ...] = field(default_factory=tuple)
     insufficient: bool = False
     reason: str = ""
@@ -98,6 +140,7 @@ def mad_screen(
     k: Decimal = Decimal("3.5"),
     winsorise_below_n: int = 5,
     percentiles: tuple[Decimal, Decimal] = (Decimal("5"), Decimal("95")),
+    mode: str = ScreenMode.FLAG,
 ) -> tuple[list[MatchedPair], list[OutlierVerdict]]:
     """Screen log price-relatives by median absolute deviation.
 
@@ -117,17 +160,68 @@ def mad_screen(
     if not pairs:
         return [], []
 
+    # Plausibility first, and separately from the statistical screen. A relative
+    # outside these bounds is not an unusual price but a broken one, and it is
+    # removed in either mode. This is the only thing methodology 1.1.0 discards.
+    plausible: list[MatchedPair] = []
+    verdicts: list[OutlierVerdict] = []
+    for pair in pairs:
+        relative = pair.relative
+        if not MIN_PLAUSIBLE_RELATIVE <= relative <= MAX_PLAUSIBLE_RELATIVE:
+            verdicts.append(
+                OutlierVerdict(
+                    key=pair.key,
+                    kept=False,
+                    observed=relative,
+                    threshold=MAX_PLAUSIBLE_RELATIVE,
+                    rule_id="IMPLAUSIBLE_RELATIVE",
+                    reason=(
+                        f"period-on-period relative {relative} lies outside "
+                        f"[{MIN_PLAUSIBLE_RELATIVE}, {MAX_PLAUSIBLE_RELATIVE}]; "
+                        "this is a broken value, not an unusual price"
+                    ),
+                )
+            )
+        else:
+            plausible.append(pair)
+
+    if not plausible:
+        return [], verdicts
+
+    pairs = plausible
     logs = [p.log_relative for p in pairs]
 
     if len(pairs) < winsorise_below_n:
         low = _percentile(logs, percentiles[0])
         high = _percentile(logs, percentiles[1])
         kept: list[MatchedPair] = []
-        verdicts: list[OutlierVerdict] = []
         for pair in pairs:
             value = pair.log_relative
             clamped = min(max(value, low), high)
-            if clamped != value:
+            if clamped == value:
+                kept.append(pair)
+                continue
+
+            if mode == ScreenMode.FLAG:
+                # Kept at its observed value. With four observations an extreme
+                # may simply be the market, and pulling it in would damp a real
+                # event on the strength of a small sample.
+                verdicts.append(
+                    OutlierVerdict(
+                        key=pair.key,
+                        kept=True,
+                        flagged=True,
+                        observed=pair.relative,
+                        threshold=None,
+                        rule_id="EXTREME_SMALL_N_FLAGGED",
+                        reason=(
+                            f"n={len(pairs)}: relative {pair.relative} is extreme for "
+                            "this stratum and is kept and counted, not adjusted"
+                        ),
+                    )
+                )
+                kept.append(pair)
+            else:
                 verdicts.append(
                     OutlierVerdict(
                         key=pair.key,
@@ -149,8 +243,6 @@ def mad_screen(
                         current=pair.previous * clamped.exp(),
                     )
                 )
-            else:
-                kept.append(pair)
         return kept, verdicts
 
     median = _median(logs)
@@ -177,15 +269,43 @@ def mad_screen(
         mean_ad = sum(deviations, Decimal(0)) / len(deviations)
         if mean_ad == 0:
             # Every relative genuinely identical. Nothing to screen, and nothing
-            # extreme to miss.
-            return list(pairs), []
+            # extreme to miss. Plausibility verdicts already collected are kept:
+            # resetting them here would silently lose the record of a removed
+            # broken value.
+            return list(pairs), verdicts
         scale = Decimal("1.253314") * mean_ad
     else:
         scale = Decimal("1.4826") * mad
-    kept, verdicts = [], []
+    # NB: `verdicts` already carries any plausibility removals. Re-initialising
+    # it here was a bug - the record of a discarded broken value vanished.
+    kept = []
     for pair in pairs:
         score = abs(pair.log_relative - median) / scale
-        if score > k:
+        if score <= k:
+            kept.append(pair)
+            continue
+
+        if mode == ScreenMode.FLAG:
+            # Kept and counted. A fare far from its neighbours may be a last-seat
+            # price rather than an error, and the two are statistically
+            # indistinguishable - so the index observes it and the Data Quality
+            # page reports that it did.
+            kept.append(pair)
+            verdicts.append(
+                OutlierVerdict(
+                    key=pair.key,
+                    kept=True,
+                    flagged=True,
+                    observed=pair.relative,
+                    threshold=k,
+                    rule_id="EXTREME_MAD_FLAGGED",
+                    reason=(
+                        f"modified z-score {score:.2f} exceeds k={k}; kept in the "
+                        "index and counted rather than discarded"
+                    ),
+                )
+            )
+        else:
             verdicts.append(
                 OutlierVerdict(
                     key=pair.key,
@@ -199,8 +319,6 @@ def mad_screen(
                     ),
                 )
             )
-        else:
-            kept.append(pair)
     return kept, verdicts
 
 
@@ -211,6 +329,7 @@ def jevons_short(
     k: Decimal = Decimal("3.5"),
     min_quotes: int = 3,
     winsorise_below_n: int = 5,
+    mode: str = ScreenMode.FLAG,
 ) -> ElementaryResult:
     """Compute one stratum index by chaining onto its predecessor.
 
@@ -237,8 +356,12 @@ def jevons_short(
                 "data error and must be rejected at ingestion, not averaged."
             )
 
-    kept, verdicts = mad_screen(pairs, k=k, winsorise_below_n=winsorise_below_n)
+    kept, verdicts = mad_screen(
+        pairs, k=k, winsorise_below_n=winsorise_below_n, mode=mode
+    )
     rejected = len(pairs) - len(kept)
+    flagged = sum(1 for v in verdicts if v.flagged)
+    implausible = sum(1 for v in verdicts if v.rule_id == "IMPLAUSIBLE_RELATIVE")
 
     if len(kept) < min_quotes:
         return ElementaryResult(
@@ -248,6 +371,8 @@ def jevons_short(
             rejected=rejected,
             geometric_mean_relative=None,
             verdicts=tuple(verdicts),
+            flagged=flagged,
+            implausible=implausible,
             insufficient=True,
             reason=(
                 f"{len(kept)} accepted pair(s) is below the minimum of {min_quotes}; "
@@ -268,6 +393,8 @@ def jevons_short(
         rejected=rejected,
         geometric_mean_relative=gm.quantize(Decimal("0.000001")),
         verdicts=tuple(verdicts),
+        flagged=flagged,
+        implausible=implausible,
     )
 
 

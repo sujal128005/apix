@@ -20,11 +20,18 @@ from sqlalchemy.dialects.postgresql import insert
 
 from schemas.models import MethodologyVersion
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 CHANGELOG = (
-    "Initial. Jevons short (chain-base) elementary; Young/Modified Laspeyres "
-    "higher-level, weighted arithmetic."
+    "1.1.0 - Outlier screening changed from reject to flag. A sensitivity "
+    "analysis measured the previous rule erasing genuine price events: a "
+    "tripled fare in a six-observation stratum was discarded and the index "
+    "reported no movement. A statistical screen cannot distinguish a data error "
+    "from a last-seat fare, so extreme observations now stay in the index and "
+    "are counted, and only impossible relatives (outside 0.01-100x) are "
+    "removed. See docs/evidence/O7-screen-suppresses-real-events.md. "
+    "1.0.0 - Initial. Jevons short (chain-base) elementary; Young/Modified "
+    "Laspeyres higher-level, weighted arithmetic."
 )
 
 PARAMS: dict[str, Any] = {
@@ -32,6 +39,9 @@ PARAMS: dict[str, Any] = {
     "higher_level_formula": "young_modified_laspeyres",
     "higher_level_aggregation": "weighted_arithmetic_mean",
     "outlier_method": "mad_log_relatives",
+    "screen_mode": "flag",
+    "min_plausible_relative": "0.01",
+    "max_plausible_relative": "100",
     "outlier_k": 3.5,
     "min_quotes_per_stratum": 3,
     "winsorise_below_n": 5,

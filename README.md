@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`821 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`824 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 821 passed
+.venv\Scripts\pytest -q                           # expect 824 passed
 ```
 
 Then populate it and start the site:
@@ -110,7 +110,7 @@ weighted arithmetic specifically to align it with every other item.
 | Passenger counts as proxy weights | Expert Group Report §4.6.3.3 |
 | Airfares collected from online platforms | MoSPI CPI 2024 FAQ, Q27 |
 | Comparator: item 294, COICOP 07.3.3.1.2.01, *domestic* | MoSPI open API, verified 7 Sep 2026 |
-| Outlier screening (MAD, k = 3.5) | **Ours — experimental, and under review.** Measured to suppress genuine price spikes (`docs/evidence/O7-...`). MoSPI prescribes no outlier rule for airfare |
+| Outlier screening — extreme observations flagged, not rejected | **Ours.** MoSPI prescribes no outlier rule for airfare. Only impossible relatives (outside 0.01–100x) are removed; `k` affects what is reported, not the index. `docs/evidence/O7-...` |
 
 Full detail at `/methodology` and in `docs/`.
 
@@ -180,7 +180,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**821 tests** — 412 unit, 409 integration. The count is not the point; what it
+**824 tests** — 417 unit, 407 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |

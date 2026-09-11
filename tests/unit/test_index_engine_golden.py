@@ -16,7 +16,7 @@ from decimal import Decimal
 import pytest
 
 from index_engine.aggregate import Component, weighted_arithmetic
-from index_engine.jevons import MatchedPair, jevons_short, mad_screen
+from index_engine.jevons import MatchedPair, ScreenMode, jevons_short, mad_screen
 
 
 def pair(key: str, previous: str, current: str) -> MatchedPair:
@@ -60,7 +60,12 @@ GOLDEN_PAIRS = [
 
 
 def test_golden_the_outlier_is_rejected() -> None:
-    kept, verdicts = mad_screen(GOLDEN_PAIRS, k=3.5)
+    """Methodology 1.0.0 behaviour, asserted explicitly.
+
+    Kept as a versioned reference. 1.1.0 flags rather than rejects, and both
+    must remain testable so a revision is never confused with a correction.
+    """
+    kept, verdicts = mad_screen(GOLDEN_PAIRS, k=Decimal('3.5'), mode=ScreenMode.REJECT)
 
     assert len(kept) == 4
     assert len(verdicts) == 1
@@ -73,7 +78,7 @@ def test_golden_the_outlier_is_rejected() -> None:
 
 def test_golden_stratum_index_is_exactly_102_484143() -> None:
     """The hand-calculated value. Any drift here is a bug until proven otherwise."""
-    result = jevons_short(GOLDEN_PAIRS, Decimal("100"))
+    result = jevons_short(GOLDEN_PAIRS, Decimal("100"), mode=ScreenMode.REJECT)
 
     assert result.index_value == Decimal("102.484143")
     assert result.geometric_mean_relative == Decimal("1.024841")
@@ -258,14 +263,19 @@ def test_identical_input_gives_identical_output() -> None:
 
 
 def test_winsorisation_replaces_rejection_when_n_is_small() -> None:
-    """With four points, pulling an extreme in beats discarding it."""
+    """Methodology 1.0.0 behaviour: with four points, pull an extreme in.
+
+    1.1.0 keeps it untouched and flags it instead - at n = 4 an extreme may
+    simply be the market, and adjusting it damps a real event on the strength
+    of a very small sample.
+    """
     pairs = [
         pair("A", "5000", "5000"),
         pair("B", "5000", "5100"),
         pair("C", "5000", "5200"),
         pair("D", "5000", "25000"),
     ]
-    kept, verdicts = mad_screen(pairs, winsorise_below_n=5)
+    kept, verdicts = mad_screen(pairs, winsorise_below_n=5, mode=ScreenMode.REJECT)
 
     assert len(kept) == 4, "nothing discarded at small n"
     assert any(v.rule_id == "OUTLIER_WINSORISE_P5_P95" for v in verdicts)
@@ -294,11 +304,18 @@ def test_an_outlier_is_caught_even_when_the_rest_move_identically() -> None:
         pair("D", "8000", "8160"),
         pair("E", "5000", "21000"),
     ]
-    kept, verdicts = mad_screen(pairs, k=Decimal("3.5"))
+    kept, verdicts = mad_screen(pairs, k=Decimal("3.5"), mode=ScreenMode.REJECT)
 
-    assert len(verdicts) == 1, "the 4x outlier must be rejected"
+    assert len(verdicts) == 1, "the 4x outlier must be detected"
     assert verdicts[0].key == "E"
     assert len(kept) == 4
+
+    # Under 1.1.0 the same outlier is detected and kept, so the degenerate-MAD
+    # fix matters in both modes: without it the value is invisible either way.
+    kept_flag, verdicts_flag = mad_screen(pairs, k=Decimal("3.5"), mode=ScreenMode.FLAG)
+    assert len(verdicts_flag) == 1
+    assert verdicts_flag[0].flagged is True
+    assert len(kept_flag) == 5
 
 
 def test_genuinely_identical_relatives_are_left_alone() -> None:
@@ -345,3 +362,91 @@ def test_the_fallback_still_respects_the_threshold() -> None:
     ]
     assert len(mad_screen(pairs, k=Decimal("3.5"))[1]) == 1
     assert len(mad_screen(pairs, k=Decimal("5.0"))[1]) == 0
+
+
+# -- methodology 1.1.0: flag rather than reject ---------------------------
+
+
+def test_flag_mode_observes_a_genuine_price_event() -> None:
+    """The change methodology 1.1.0 exists for.
+
+    One fare triples in a six-observation stratum. Under 1.0.0 the screen
+    rejected it and the index reported that nothing had happened. A last-seat
+    fare at 3x the cabin rate is not an error; it is the phenomenon a real-time
+    airfare index exists to observe.
+    """
+    spike = [
+        pair("A", "5000", "5000"),
+        pair("B", "6000", "6000"),
+        pair("C", "7000", "7000"),
+        pair("D", "8000", "24000"),
+        pair("E", "5000", "5000"),
+        pair("F", "6000", "6000"),
+    ]
+
+    rejected = jevons_short(spike, Decimal("100"), mode=ScreenMode.REJECT)
+    assert rejected.index_value == Decimal("100.000000"), "1.0.0 erased the event"
+    assert rejected.rejected == 1
+
+    flagged = jevons_short(spike, Decimal("100"), mode=ScreenMode.FLAG)
+    assert flagged.index_value == Decimal("120.093696"), "1.1.0 observes it"
+    assert flagged.flagged == 1
+    assert flagged.rejected == 0
+
+
+def test_an_impossible_relative_is_removed_in_either_mode() -> None:
+    """Errors are removed on impossibility, never on being unusual.
+
+    A fare falling to a two-thousandth of its previous value overnight is a
+    misplaced decimal or a parse failure, not a market event.
+    """
+    broken = [
+        pair("A", "5000", "5000"),
+        pair("B", "6000", "6000"),
+        pair("C", "7000", "7000"),
+        pair("D", "8000", "8000"),
+        pair("E", "5000", "2"),
+        pair("F", "6000", "6000"),
+    ]
+    result = jevons_short(broken, Decimal("100"))
+
+    assert result.implausible == 1
+    assert result.accepted == 5
+    assert result.index_value == Decimal("100.000000")
+
+
+def test_a_market_wide_move_is_never_touched() -> None:
+    """Uniform movement has no outlier relative to the group."""
+    surge = [pair(c, "5000", "10000") for c in "ABCDEF"]
+    result = jevons_short(surge, Decimal("100"))
+
+    assert result.index_value == Decimal("200.000000")
+    assert result.flagged == 0
+    assert result.rejected == 0
+
+
+def test_flagged_observations_are_recorded_not_hidden() -> None:
+    """A flagged verdict must be written so the count can be published."""
+    spike = [
+        pair("A", "5000", "5000"),
+        pair("B", "6000", "6000"),
+        pair("C", "7000", "7000"),
+        pair("D", "8000", "24000"),
+        pair("E", "5000", "5000"),
+        pair("F", "6000", "6000"),
+    ]
+    result = jevons_short(spike, Decimal("100"), mode=ScreenMode.FLAG)
+
+    flagged = [v for v in result.verdicts if v.flagged]
+    assert len(flagged) == 1
+    assert flagged[0].kept is True
+    assert flagged[0].rule_id == "EXTREME_MAD_FLAGGED"
+    assert "kept in the index and counted" in flagged[0].reason
+
+
+def test_the_default_mode_is_flag() -> None:
+    """1.1.0 is the methodology in force; reject is the versioned predecessor."""
+    import inspect
+
+    assert inspect.signature(jevons_short).parameters["mode"].default == ScreenMode.FLAG
+    assert inspect.signature(mad_screen).parameters["mode"].default == ScreenMode.FLAG

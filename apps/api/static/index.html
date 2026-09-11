@@ -16,7 +16,7 @@
   <div class="grid" id="stats"></div>
 
   <section>
-    <h2>Route-level index</h2>
+    <h2>Route-level index &mdash; latest collection date</h2>
     <div id="routes"><div class="empty">Loading…</div></div>
     <div class="meta" id="routes-meta"></div>
   </section>
@@ -94,7 +94,12 @@ async function load() {
     </div>`;
 
   try {
-    const r = await get("/api/v1/index/routes?limit=25");
+    const r = await get("/api/v1/index/routes?limit=200");
+    // Latest date only. Showing several days at once mixed 50 rows together and
+    // made a route's movement impossible to read at a glance; the full history
+    // is a click away on the Route Explorer.
+    const latest = r.data.length ? r.data[0].obs_date : null;
+    r.data = r.data.filter(x => x.obs_date === latest);
     document.getElementById("routes").innerHTML = table([
       {label: "Date",   render: x => esc(x.obs_date)},
       {label: "Route",  render: x => `<code>${esc(x.route)}</code>`},

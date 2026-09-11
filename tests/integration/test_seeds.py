@@ -259,7 +259,11 @@ def test_adapter_keys_are_shared_per_source_family(app_session: Session) -> None
 # ---------------------------------------------------------------------------
 def test_one_methodology_version_is_seeded(app_session: Session) -> None:
     versions = list(app_session.execute(select(MethodologyVersion.version)).scalars())
-    assert versions == ["1.0.0"]
+    assert versions == ["1.1.0"], (
+        "The seeded methodology version must match db/seeds/methodology.py. "
+        "A version bump is a deliberate act - if this fails, confirm the "
+        "changelog records why the methodology changed."
+    )
 
 
 def test_methodology_params_are_exactly_the_frozen_set(app_session: Session) -> None:
