@@ -13,7 +13,7 @@ docker compose up -d                           # PostgreSQL 16 on 127.0.0.1:5433
 py -3.12 -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py        # migrate and seed
-.venv\Scripts\pytest -q                        # expect 815 passed
+.venv\Scripts\pytest -q                        # expect 821 passed
 ```
 
 ```powershell

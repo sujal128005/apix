@@ -2,7 +2,7 @@
 
 **Problem Statement 26056 · MoSPI / Data Informatics & Innovation Division**
 **Audited 10 September 2026 · revised 11 September 2026**
-**815 tests passing · ruff and mypy --strict clean**
+**821 tests passing · ruff and mypy --strict clean**
 
 > **Revision note.** The first version of this audit overstated two rows. A1
 > cited "APScheduler-ready" as evidence of scheduled collection when no
@@ -33,7 +33,7 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 | A10 | Dashboard: trends, heatmaps, lead-time curves | **Met** | Seven pages, server-rendered | All pages |
 | A11 | API for NSO/RBI consumption | **Met** | Versioned REST, OpenAPI, `meta` on every response | `/api/docs` |
 | A12 | Documentation | **Met** | `docs/` — audit, methodology, deployment, demo script, ADRs, evidence files — plus a methodology page citing every source | `/methodology` |
-| A13 | Automated testing | **Met** | 815 tests; `.github/workflows/ci.yml` runs lint, strict typing, the full suite, and five named gates (index drift, bypass path, float on a money path, TLS verification, immutability) | GitHub Actions |
+| A13 | Automated testing | **Met** | 821 tests (412 unit, 409 integration); `.github/workflows/ci.yml` runs lint, strict typing, the full suite, and five named gates (index drift, bypass path, float on a money path, TLS verification, immutability) | GitHub Actions |
 | A14 | **30 days back-tested against public DGCA monthly fare data** | **Not met** | No continuously downloadable route-level monthly series located; a CPI comparator is implemented instead, with zero overlap to date — see §B | `/api/v1/backtest` |
 
 ---
@@ -138,7 +138,7 @@ history is not an audit.
 | Row | The claim | What was actually in the repository |
 |---|---|---|
 | A1 | "APScheduler-ready" | No scheduler existed. "Ready" was carrying the whole claim. Now implemented and tested. |
-| A13 | Evidence: "CI" | 786 tests existed; nothing ran them automatically. Now a GitHub Actions workflow with five named gates. |
+| A13 | Evidence: "CI" | The tests existed; nothing ran them automatically. Now a GitHub Actions workflow with five named gates. |
 
 Both were found by re-reading the repository against this document rather than
 by a reviewer. The lesson generalises: **documentation drifts ahead of code by

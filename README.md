@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`815 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`821 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 815 passed
+.venv\Scripts\pytest -q                           # expect 821 passed
 ```
 
 Then populate it and start the site:
@@ -179,6 +179,17 @@ source registry → compliance gate → adapters → raw storage
 FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
+
+**821 tests** — 412 unit, 409 integration. The count is not the point; what it
+covers is:
+
+| Kind | What it protects |
+|---|---|
+| Golden | Hand-calculated index values. CI fails on any drift. |
+| Constraint | Each database guarantee proven by *provoking* a failure, not confirming a success |
+| Static scan | No bypass around the compliance gate, no float on a money path, no disabled TLS verification |
+| Regression | Adapter parsers replay frozen fixtures offline |
+| Contract | Every API response carries its methodology and weight-set version |
 
 Money is `Decimal` end to end — deterministic high-precision decimal arithmetic
 with controlled rounding, not mathematical exactness: logarithms and exponentials
