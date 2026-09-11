@@ -1,60 +1,45 @@
-/* ============================================================
+/* =========================================================
    APIx
-   Government of India / MoSPI inspired visual system
-
-   UI ONLY.
-   No JavaScript assumptions.
-   No markup/functionality changes required.
-
-   Design direction:
-   - Government / statistics portal
-   - Institutional, official, information-dense
-   - White + deep government blue
-   - Strong horizontal rules
-   - Minimal rounded cards
-   - Less SaaS, less dashboard-app
-   - Better hierarchy for tables and statistics
-   ============================================================ */
+   MoSPI-inspired government portal visual system
+   UI ONLY - functionality/HTML/JS unchanged
+   ========================================================= */
 
 :root {
-  --gov-blue:        #123b73;
-  --gov-blue-dark:   #0b2850;
-  --gov-blue-deep:   #071d3a;
-  --gov-blue-mid:    #1c4f8f;
-  --gov-blue-light:  #eaf1f8;
-  --gov-blue-pale:   #f4f7fb;
+  --navy: #0b2641;
+  --navy-2: #0e3153;
+  --navy-3: #123a60;
 
-  --saffron:         #e87817;
-  --saffron-pale:    #fff4e9;
+  --blue: #1b5b91;
+  --blue-light: #edf5fb;
 
-  --green:           #167447;
-  --green-pale:      #eef8f2;
+  --orange: #e68124;
+  --orange-dark: #cf6b0d;
 
-  --red:             #a52a2a;
-  --red-pale:        #fff0f0;
+  --white: #ffffff;
+  --page: #f5f6f7;
+  --surface: #ffffff;
 
-  --gold:            #9a6b00;
-  --gold-pale:       #fff8e5;
+  --text: #222;
+  --text-soft: #555;
+  --text-muted: #777;
 
-  --ink:             #1c2733;
-  --ink-soft:        #45515d;
-  --ink-muted:       #687582;
-  --ink-faint:       #8994a0;
+  --border: #d9dde2;
+  --border-light: #e8ebee;
 
-  --white:            #ffffff;
-  --page:             #f3f5f7;
+  --green: #227a4b;
+  --green-bg: #eef8f2;
 
-  --border:           #d3d9e0;
-  --border-dark:      #b8c1ca;
-  --border-light:     #e7ebef;
+  --yellow: #9b7100;
+  --yellow-bg: #fff8e6;
 
-  --shadow:           0 1px 3px rgba(20, 38, 56, .07);
-  --shadow-hover:     0 2px 8px rgba(20, 38, 56, .10);
+  --red: #a62929;
+  --red-bg: #fff0f0;
 
-  --radius:            3px;
+  --radius: 3px;
 
-  --content-width:     1380px;
-  --font-scale:        1;
+  --shadow: 0 1px 4px rgba(0, 0, 0, .08);
+
+  --font-scale: 1;
 }
 
 * {
@@ -63,53 +48,55 @@
 
 html {
   font-size: calc(15px * var(--font-scale));
-  background: var(--page);
 }
 
 body {
   margin: 0;
-  background:
-    linear-gradient(
-      to bottom,
-      #eef2f6 0,
-      #f5f6f8 170px,
-      var(--page) 170px,
-      var(--page) 100%
-    );
-  color: var(--ink);
+  padding: 0;
+
+  background: var(--page);
+  color: var(--text);
+
   font-family:
+    "Noto Sans",
+    "Nirmala UI",
     "Segoe UI",
     Arial,
-    Helvetica,
     sans-serif;
-  line-height: 1.5;
+
+  line-height: 1.55;
+
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-/* ============================================================
-   ACCESSIBILITY / GOVERNMENT UTILITY BAR
-   ============================================================ */
+/* =========================================================
+   TOP GOVERNMENT UTILITY BAR
+   ========================================================= */
 
 .topbar {
-  min-height: 34px;
-  background: var(--gov-blue-dark);
-  color: #dce8f5;
+  width: 100%;
 
-  padding: 0 34px;
+  min-height: 38px;
+
+  padding: 0 5%;
 
   display: flex;
   align-items: center;
-  gap: 18px;
 
-  font-size: .73rem;
-  border-bottom: 1px solid rgba(255,255,255,.13);
+  background: var(--white);
+
+  border-bottom: 1px solid #e0e0e0;
+
+  color: #222;
+
+  font-size: .76rem;
+
+  gap: 24px;
 }
 
 .topbar .gov {
-  color: #ffffff;
+  color: #222;
   font-weight: 600;
-  letter-spacing: .01em;
 }
 
 .topbar .spacer {
@@ -118,66 +105,72 @@ body {
 
 .topbar a,
 .topbar button {
-  color: #dce8f5;
-  text-decoration: none;
+  appearance: none;
 
   border: 0;
   background: transparent;
 
-  font: inherit;
+  color: #222;
+
+  text-decoration: none;
+
   cursor: pointer;
 
-  padding: 3px 4px;
+  font: inherit;
 
-  transition:
-    background .15s ease,
-    color .15s ease;
+  padding: 4px 6px;
 }
 
 .topbar a:hover,
 .topbar button:hover {
-  color: #ffffff;
-  background: rgba(255,255,255,.08);
+  color: var(--blue);
 }
 
 .topbar .sizer {
   display: inline-flex;
-  gap: 3px;
   align-items: center;
+  gap: 3px;
 }
 
 .topbar .sizer button {
   min-width: 24px;
 
-  border: 1px solid rgba(255,255,255,.2);
+  border: 1px solid #d3d3d3;
+
+  background: #fff;
+
   border-radius: 2px;
 
-  padding: 2px 6px;
-  line-height: 1.1;
+  line-height: 1;
+
+  padding: 4px 7px;
 }
 
 .topbar .sizer button[aria-pressed="true"] {
-  background: #ffffff;
-  color: var(--gov-blue-dark);
-  border-color: #ffffff;
+  color: #fff;
+
+  background: var(--navy);
+
+  border-color: var(--navy);
 }
 
-/* ============================================================
+/* =========================================================
    SKIP LINK
-   ============================================================ */
+   ========================================================= */
 
 .skip-link {
   position: absolute;
+
   left: -9999px;
   top: 8px;
 
-  background: var(--gov-blue-dark);
-  color: #ffffff;
-
   padding: 8px 14px;
-  z-index: 1000;
 
-  border-radius: 2px;
+  background: var(--navy);
+  color: #fff;
+
+  z-index: 9999;
+
   text-decoration: none;
 }
 
@@ -185,96 +178,89 @@ body {
   left: 10px;
 }
 
-/* ============================================================
+/* =========================================================
    MASTHEAD
-   ============================================================ */
+   ========================================================= */
 
 .masthead {
+  width: 100%;
+
   background: var(--white);
 
-  min-height: 94px;
-  padding: 18px 34px;
+  padding:
+    18px
+    5%;
 
   display: flex;
   align-items: center;
-  gap: 16px;
 
-  border-bottom: 1px solid var(--border);
+  gap: 18px;
+
+  min-height: 105px;
+
+  border-bottom: 1px solid #e1e3e5;
 }
 
-/*
-   Deliberately NOT using the State Emblem.
-
-   The circular mark is now treated as a neutral
-   institutional identity block instead of a SaaS logo.
-*/
-
 .masthead .mark {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
 
   flex: none;
 
-  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  background:
-    linear-gradient(
-      135deg,
-      var(--gov-blue-dark),
-      var(--gov-blue)
-    );
+  background: var(--navy);
 
-  display: grid;
-  place-items: center;
+  color: #fff;
 
-  color: #ffffff;
+  border-radius: 50%;
 
-  font-size: .82rem;
+  font-size: .8rem;
   font-weight: 700;
 
-  letter-spacing: .04em;
-
-  border: 1px solid #092247;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  letter-spacing: .03em;
 }
 
 .masthead .hindi {
-  color: #56616d;
-  font-size: .82rem;
+  color: #4b4b4b;
+
+  font-size: .84rem;
+
   line-height: 1.35;
 }
 
 .masthead .english {
-  color: var(--gov-blue-dark);
+  margin-top: 1px;
 
-  font-size: 1.05rem;
-  line-height: 1.25;
+  color: var(--navy);
+
+  font-size: 1.02rem;
 
   font-weight: 700;
-  letter-spacing: .01em;
+
+  line-height: 1.35;
 }
 
 .masthead .division {
   margin-top: 3px;
 
-  color: var(--ink-muted);
+  color: #777;
 
   font-size: .73rem;
-  line-height: 1.3;
 }
 
 .masthead .system {
   margin-left: auto;
 
   text-align: right;
-  align-self: center;
 }
 
 .masthead .system .name {
-  color: var(--gov-blue-dark);
+  color: var(--navy);
 
-  font-size: 1.02rem;
-  line-height: 1.25;
+  font-size: 1rem;
 
   font-weight: 700;
 }
@@ -282,57 +268,54 @@ body {
 .masthead .system .ps {
   margin-top: 3px;
 
-  color: var(--ink-muted);
+  color: #777;
 
-  font-size: .73rem;
+  font-size: .72rem;
 }
 
-/* ============================================================
-   PRIMARY GOVERNMENT NAVIGATION
-   ============================================================ */
+/* =========================================================
+   PRIMARY NAVIGATION
+   ========================================================= */
 
 nav.primary {
-  min-height: 47px;
+  width: 100%;
 
-  background: var(--gov-blue);
-
-  padding: 0 34px;
+  padding: 0 5%;
 
   display: flex;
   align-items: stretch;
-  gap: 0;
 
-  flex-wrap: wrap;
+  background: var(--navy);
 
-  border-top: 1px solid #28548a;
-  border-bottom: 4px solid var(--saffron);
+  border-bottom: 4px solid var(--orange);
 
   position: sticky;
   top: 0;
 
-  z-index: 20;
+  z-index: 100;
 
-  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  box-shadow: none;
+
+  gap: 0;
+
+  flex-wrap: wrap;
 }
 
 nav.primary a {
   display: flex;
   align-items: center;
 
-  color: #ffffff;
+  min-height: 47px;
 
-  text-decoration: none;
-
-  padding: 0 17px;
-
-  min-height: 43px;
-
-  font-size: .79rem;
-  font-weight: 500;
+  padding: 0 18px;
 
   border-right: 1px solid rgba(255,255,255,.12);
 
-  position: relative;
+  color: #fff;
+
+  text-decoration: none;
+
+  font-size: .79rem;
 
   transition:
     background .15s ease,
@@ -344,55 +327,54 @@ nav.primary a:first-child {
 }
 
 nav.primary a:hover {
-  background: var(--gov-blue-dark);
-  color: #ffffff;
+  background: rgba(255,255,255,.08);
 }
 
 nav.primary a.active {
-  background: #ffffff;
-  color: var(--gov-blue-dark);
+  background: #fff;
+
+  color: var(--navy);
 
   font-weight: 700;
 
   box-shadow:
-    inset 0 -3px 0 var(--saffron);
+    inset 0 -3px 0 var(--orange);
 }
 
-/* ============================================================
-   PAGE
-   ============================================================ */
+/* =========================================================
+   MAIN PAGE
+   ========================================================= */
 
 main {
   width: 100%;
-  max-width: var(--content-width);
+  max-width: 1380px;
 
   margin: 0 auto;
 
   padding:
-    18px
-    34px
-    60px;
+    24px 5%
+    80px;
 }
 
-/* ============================================================
-   OPTIONAL PAGE TITLE SUPPORT
-   If your HTML has headings before sections, they now look
-   like an official statistics portal heading.
-   ============================================================ */
+/* =========================================================
+   PAGE HEADING
+   ========================================================= */
 
 main > h1 {
-  margin: 6px 0 18px;
+  margin:
+    4px 0 20px;
 
-  color: var(--gov-blue-dark);
+  color: var(--navy);
 
   font-size: 1.55rem;
+
   font-weight: 700;
 
   line-height: 1.25;
 
-  border-bottom: 1px solid var(--border);
-
   padding-bottom: 11px;
+
+  border-bottom: 1px solid var(--border);
 }
 
 main > h1::after {
@@ -400,74 +382,80 @@ main > h1::after {
 
   display: block;
 
-  width: 54px;
+  width: 58px;
   height: 3px;
 
-  margin-top: 10px;
+  margin-top: 9px;
 
-  background: var(--saffron);
+  background: var(--orange);
 }
 
-/* ============================================================
-   NOTICES
-   ============================================================ */
+/* =========================================================
+   GOVERNMENT NOTICE
+   ========================================================= */
 
 .banner {
-  background: var(--gold-pale);
+  margin-bottom: 22px;
 
-  border: 1px solid #ead79f;
-  border-left: 5px solid var(--saffron);
+  padding:
+    12px
+    17px;
+
+  background: var(--yellow-bg);
+
+  border:
+    1px solid #eadcae;
+
+  border-left:
+    5px solid var(--orange);
 
   border-radius: 2px;
 
-  padding: 11px 15px;
-
-  margin-bottom: 18px;
+  color: #4a4638;
 
   font-size: .82rem;
-  line-height: 1.5;
-
-  color: #4c4a42;
-
-  box-shadow: 0 1px 2px rgba(0,0,0,.03);
 }
 
 .banner strong {
-  color: #805d00;
+  color: #816500;
 }
 
-/* ============================================================
-   STATISTIC STRIP
-   ============================================================ */
+/* =========================================================
+   STATISTICS
+   ========================================================= */
 
 .grid {
   display: grid;
 
   grid-template-columns:
-    repeat(auto-fit, minmax(220px, 1fr));
+    repeat(auto-fit, minmax(210px, 1fr));
 
   gap: 0;
 
-  margin-bottom: 18px;
-
   background: var(--white);
 
-  border: 1px solid var(--border);
+  border:
+    1px solid var(--border);
+
+  margin-bottom: 22px;
+
+  box-shadow: var(--shadow);
 }
 
 .stat {
-  min-height: 108px;
+  min-height: 112px;
 
-  background: var(--white);
+  padding:
+    17px
+    19px;
 
-  border: 0;
+  background: #fff;
+
   border-right: 1px solid var(--border);
 
   border-radius: 0;
 
   box-shadow: none;
-
-  padding: 15px 18px;
 }
 
 .stat:last-child {
@@ -475,114 +463,113 @@ main > h1::after {
 }
 
 .stat .label {
-  color: #687582;
+  color: #707070;
 
-  font-size: .67rem;
-  font-weight: 700;
+  font-size: .66rem;
 
   text-transform: uppercase;
-  letter-spacing: .07em;
 
-  line-height: 1.35;
+  letter-spacing: .06em;
+
+  font-weight: 700;
 }
 
 .stat .value {
-  margin: 7px 0 3px;
+  margin:
+    7px
+    0
+    3px;
 
-  color: var(--gov-blue);
+  color: var(--navy);
 
   font-size: 1.55rem;
+
   font-weight: 700;
 
-  line-height: 1.15;
+  line-height: 1.2;
 
   font-variant-numeric: tabular-nums;
 }
 
 .stat .value.muted {
-  color: var(--ink-soft);
+  color: #555;
 
-  font-size: .94rem;
-  font-weight: 600;
+  font-size: .95rem;
 }
 
 .stat .note {
-  color: var(--ink-faint);
+  color: #888;
 
   font-size: .72rem;
+
   line-height: 1.45;
 }
 
-/* ============================================================
-   CONTENT SECTIONS
-   ============================================================ */
+/* =========================================================
+   CONTENT SECTION
+   ========================================================= */
 
 section {
+  margin-bottom: 22px;
+
   background: var(--white);
 
-  border: 1px solid var(--border);
+  border:
+    1px solid var(--border);
 
   border-radius: 2px;
 
   box-shadow: var(--shadow);
 
-  margin-bottom: 18px;
-
   overflow: hidden;
 }
 
-/*
-   Government-style section header:
-   compact, horizontal, information-first.
-*/
-
 section > h2 {
-  min-height: 43px;
+  min-height: 45px;
 
   margin: 0;
-  padding: 10px 16px;
+
+  padding:
+    11px
+    17px;
 
   display: flex;
   align-items: center;
-  gap: 9px;
 
-  background:
-    linear-gradient(
-      to bottom,
-      #ffffff,
-      #f7f9fb
-    );
+  gap: 10px;
 
-  color: var(--gov-blue-dark);
+  color: var(--navy);
 
-  font-size: .88rem;
+  background: #ffffff;
+
+  border-bottom:
+    1px solid var(--border);
+
+  font-size: .9rem;
+
   font-weight: 700;
-
-  line-height: 1.25;
-
-  border-bottom: 1px solid var(--border);
 }
 
 section > h2::before {
   content: "";
 
   width: 4px;
-  height: 18px;
+  height: 19px;
+
+  background: var(--orange);
 
   flex: none;
-
-  border-radius: 0;
-
-  background: var(--saffron);
 }
 
 section > .body {
-  padding: 16px 18px;
+  padding:
+    18px
+    20px;
 }
 
-/* ============================================================
+/* =========================================================
    TABLES
-   ============================================================ */
+   ========================================================= */
 
 table {
   width: 100%;
@@ -591,35 +578,41 @@ table {
 
   font-size: .81rem;
 
-  background: #ffffff;
+  background: #fff;
 }
 
 th,
 td {
+  padding:
+    10px
+    14px;
+
   text-align: left;
 
-  padding:
-    9px
-    13px;
-
-  border-bottom: 1px solid var(--border-light);
+  border-bottom:
+    1px solid var(--border-light);
 
   vertical-align: middle;
 }
 
 th {
-  background: #eef3f8;
+  color: #455463;
 
-  color: #425365;
+  background: #eef3f7;
 
-  font-size: .66rem;
+  border-top:
+    1px solid var(--border);
+
+  border-bottom:
+    1px solid var(--border);
+
+  font-size: .67rem;
+
   font-weight: 700;
 
   text-transform: uppercase;
-  letter-spacing: .055em;
 
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  letter-spacing: .05em;
 
   white-space: nowrap;
 }
@@ -629,93 +622,92 @@ tbody tr:nth-child(even) td {
 }
 
 tbody tr:hover td {
-  background: var(--gov-blue-pale);
+  background: var(--blue-light);
 }
 
 tbody tr:last-child td {
-  border-bottom: none;
+  border-bottom: 0;
 }
 
 td.num {
   text-align: right;
 
   font-variant-numeric: tabular-nums;
-
-  white-space: nowrap;
 }
 
 tr.highlight td {
-  background: #eaf2fb;
+  background: #edf4fb;
 
-  color: var(--gov-blue-dark);
+  color: var(--navy);
 
   font-weight: 700;
 
-  border-top: 1px solid #c9d9ea;
-  border-bottom: 1px solid #c9d9ea;
+  border-top:
+    1px solid #cad9e7;
+
+  border-bottom:
+    1px solid #cad9e7;
 }
 
-/* ============================================================
-   METADATA / SOURCE FOOTNOTES
-   ============================================================ */
+/* =========================================================
+   METADATA
+   ========================================================= */
 
 .meta {
-  padding: 10px 16px;
+  padding:
+    10px
+    17px;
 
-  background: #f7f9fb;
+  background: #f7f8f9;
 
-  border-top: 1px solid var(--border-light);
+  border-top:
+    1px solid var(--border-light);
 
-  color: var(--ink-muted);
+  color: #777;
 
   font-size: .72rem;
 
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-.meta strong {
-  color: var(--ink-soft);
-}
-
-/* ============================================================
-   CODE
-   ============================================================ */
+/* =========================================================
+   CODE / IDENTIFIERS
+   ========================================================= */
 
 code {
-  display: inline-block;
-
   font-family:
-    ui-monospace,
     Consolas,
-    "Liberation Mono",
+    "Courier New",
     monospace;
 
   font-size: .76rem;
 
-  background: #eef3f8;
+  background: #eef3f7;
 
-  color: var(--gov-blue-dark);
+  color: var(--navy);
 
-  padding: 1px 5px;
+  border:
+    1px solid #d9e1e8;
 
-  border: 1px solid #dce4ec;
+  padding:
+    1px 5px;
 
   border-radius: 2px;
 }
 
 .empty {
-  padding: 20px 18px;
+  padding: 20px;
 
-  color: var(--ink-faint);
+  color: #888;
 
   font-size: .82rem;
 
   font-style: italic;
 }
 
-/* ============================================================
+/* =========================================================
    STATUS TAGS
-   ============================================================ */
+   ========================================================= */
 
 .tag {
   display: inline-flex;
@@ -723,308 +715,427 @@ code {
 
   min-height: 22px;
 
-  padding: 2px 8px;
+  padding:
+    2px
+    8px;
+
+  border:
+    1px solid;
 
   border-radius: 2px;
 
-  border: 1px solid;
+  font-size: .64rem;
 
-  font-size: .65rem;
   font-weight: 700;
 
   letter-spacing: .025em;
-  text-transform: uppercase;
 
-  line-height: 1;
+  text-transform: uppercase;
 }
 
 .tag.sim {
-  color: #815d00;
-  border-color: #e5ce8d;
-  background: var(--gold-pale);
+  color: var(--yellow);
+
+  border-color: #e3d19a;
+
+  background: var(--yellow-bg);
 }
 
 .tag.live {
-  color: #176a42;
-  border-color: #b7dfca;
-  background: var(--green-pale);
+  color: var(--green);
+
+  border-color: #b9dec8;
+
+  background: var(--green-bg);
 }
 
 .tag.off {
-  color: var(--gov-blue);
-  border-color: #bfd1e5;
-  background: var(--gov-blue-light);
+  color: var(--blue);
+
+  border-color: #bed2e4;
+
+  background: var(--blue-light);
 }
 
 .tag.stop {
-  color: #9b2828;
-  border-color: #edc1c1;
-  background: var(--red-pale);
+  color: var(--red);
+
+  border-color: #e8c0c0;
+
+  background: var(--red-bg);
 }
 
-/* ============================================================
+/* =========================================================
    FORM CONTROLS
-   ============================================================ */
+   ========================================================= */
 
 select,
 input[type="text"] {
   height: 34px;
 
-  font: inherit;
-  font-size: .81rem;
+  padding:
+    5px
+    9px;
 
-  padding: 5px 9px;
+  background: #fff;
 
-  color: var(--ink);
+  border:
+    1px solid #bcc5ce;
 
-  background: #ffffff;
-
-  border: 1px solid var(--border-dark);
   border-radius: 2px;
 
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.03);
+  color: var(--text);
+
+  font:
+    inherit;
+
+  font-size: .81rem;
 }
 
 select:hover,
 input[type="text"]:hover {
-  border-color: #96a5b5;
+  border-color: #8c99a5;
 }
 
 select:focus,
 input[type="text"]:focus {
-  outline: 2px solid rgba(28,79,143,.18);
+  outline:
+    2px solid rgba(27,91,145,.18);
+
   outline-offset: 1px;
 
-  border-color: var(--gov-blue-mid);
+  border-color: var(--blue);
 }
 
-/* ============================================================
-   CHART AREA
-   ============================================================ */
+/* =========================================================
+   CHARTS
+   ========================================================= */
 
 .chart {
   padding:
-    17px
     18px
+    20px
     8px;
 
-  background: #ffffff;
+  background: #fff;
 }
 
 .chart svg {
   display: block;
 
   width: 100%;
+
   height: auto;
 }
 
 .chart .axis {
-  stroke: #9ca8b3;
+  stroke: #98a5af;
+
   stroke-width: 1;
 }
 
 .chart .grid-line {
-  stroke: #e8edf2;
+  stroke: #e4e9ed;
+
   stroke-width: 1;
 }
 
 .chart .series {
   fill: none;
 
-  stroke: var(--gov-blue);
+  stroke: var(--navy);
 
-  stroke-width: 2.2;
+  stroke-width: 2;
 }
 
 .chart .point {
-  fill: var(--gov-blue);
+  fill: var(--navy);
 }
 
 .chart .bar {
-  fill: var(--gov-blue-mid);
+  fill: var(--blue);
 }
 
 .chart .bar.cpi {
-  fill: var(--saffron);
+  fill: var(--orange);
 }
 
 .chart text {
   font-family:
+    "Noto Sans",
     "Segoe UI",
     Arial,
-    Helvetica,
     sans-serif;
 
   font-size: 11px;
 
-  fill: #687582;
+  fill: #68747f;
 }
 
 .chart text.value {
-  fill: #45515d;
+  fill: #424d57;
 
   font-size: 10px;
 
   font-variant-numeric: tabular-nums;
 }
 
-/* ============================================================
-   FOOTER
-   ============================================================ */
+/* =========================================================
+   GOVERNMENT-STYLE FOOTER
+   ========================================================= */
 
 .gov-footer {
-  margin-top: 30px;
+  width: 100%;
 
-  border-top: 4px solid var(--gov-blue);
+  margin-top: 35px;
+
+  background: var(--navy);
+
+  border-top:
+    5px solid var(--orange);
 }
 
+/* Main footer */
 .gov-footer .links {
-  background: #ffffff;
-
-  border-top: 1px solid var(--border);
+  min-height: 330px;
 
   padding:
-    13px
-    34px;
+    50px
+    5%
+    42px;
 
-  display: flex;
-  align-items: center;
+  background: var(--navy);
 
-  gap: 22px;
+  display: grid;
 
-  flex-wrap: wrap;
+  grid-template-columns:
+    1fr
+    1fr
+    1.6fr
+    1.7fr;
 
-  font-size: .75rem;
+  gap: 70px;
+
+  border: 0;
+
+  font-size: .84rem;
 }
 
+/* Columns naturally inherit the existing links markup */
 .gov-footer .links a {
-  color: var(--gov-blue);
+  display: block;
+
+  width: fit-content;
+
+  margin-bottom: 18px;
+
+  color: #ffffff;
 
   text-decoration: none;
+
+  line-height: 1.5;
 }
 
 .gov-footer .links a:hover {
-  color: var(--gov-blue-dark);
+  color: #ffffff;
+
   text-decoration: underline;
 }
 
+/*
+   Existing flex-wrap footer markup is converted to
+   a spacious government-portal layout.
+*/
+
+.gov-footer .links > * {
+  max-width: 100%;
+}
+
+/* Attribution block */
 .gov-footer .attribution {
-  background: var(--gov-blue-dark);
-
-  color: #c8d4e2;
-
   padding:
-    19px
-    34px;
+    24px
+    5%;
 
-  font-size: .74rem;
+  background: #0d2d4c;
+
+  color: #d8e1ea;
+
+  border-top:
+    1px solid rgba(255,255,255,.18);
+
+  font-size: .76rem;
 
   line-height: 1.65;
 }
 
 .gov-footer .attribution strong {
-  color: #ffffff;
+  color: #fff;
 }
 
 .gov-footer .attribution code {
-  background: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.09);
 
-  border-color: rgba(255,255,255,.12);
+  color: #e7eef5;
 
-  color: #e0e9f3;
+  border-color:
+    rgba(255,255,255,.13);
 }
 
 .gov-footer .attribution .row {
   margin-bottom: 5px;
 
-  max-width: 1050px;
+  max-width: 1100px;
 }
 
+/* Bottom legal strip */
 .gov-footer .disclaimer {
-  background: var(--gov-blue-deep);
-
-  color: #91a5bb;
+  min-height: 47px;
 
   padding:
-    10px
-    34px;
+    13px
+    5%;
 
-  font-size: .69rem;
+  background: #081f35;
+
+  color: #c4d1dd;
+
+  border-top:
+    1px solid rgba(255,255,255,.08);
+
+  font-size: .72rem;
 
   line-height: 1.55;
-
-  border-top: 1px solid rgba(255,255,255,.08);
 }
 
-/* ============================================================
+/* =========================================================
+   FOOTER / SOCIAL ICONS
+   ========================================================= */
+
+.gov-footer svg,
+.gov-footer img {
+  max-width: 100%;
+}
+
+/*
+   When social icon elements already exist in the HTML,
+   keep them simple and white, similar to the screenshot.
+*/
+
+.gov-footer a[class*="social"],
+.gov-footer .social a,
+.gov-footer .social-icon {
+  color: #fff;
+
+  opacity: .96;
+}
+
+.gov-footer a[class*="social"]:hover,
+.gov-footer .social a:hover,
+.gov-footer .social-icon:hover {
+  opacity: 1;
+}
+
+/* =========================================================
+   FLOATING GOVERNMENT ACCESSIBILITY CONTROLS
+   ========================================================= */
+
+.accessibility-float,
+.accessibility-button,
+.help-float,
+.back-to-top {
+  position: fixed;
+
+  right: 30px;
+
+  width: 66px;
+  height: 66px;
+
+  border-radius: 50%;
+
+  z-index: 200;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+
+  box-shadow:
+    0 4px 13px rgba(0,0,0,.18);
+}
+
+.accessibility-float,
+.help-float {
+  bottom: 92px;
+
+  background: var(--navy-2);
+
+  border:
+    4px solid #21507b;
+
+  color: #fff;
+}
+
+.back-to-top {
+  bottom: 18px;
+
+  background: #132033;
+
+  color: #fff;
+
+  border:
+    1px solid rgba(255,255,255,.05);
+}
+
+.accessibility-float:hover,
+.help-float:hover,
+.back-to-top:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 5px 15px rgba(0,0,0,.23);
+}
+
+/* =========================================================
    RESPONSIVE
-   ============================================================ */
+   ========================================================= */
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
 
-  .topbar {
-    padding: 0 18px;
-  }
-
-  .masthead {
-    padding: 16px 18px;
-  }
-
-  .masthead .system {
-    width: 100%;
-    margin-left: 68px;
-    text-align: left;
-  }
-
-  nav.primary {
-    padding: 0 18px;
-  }
-
-  nav.primary a {
-    padding: 0 13px;
-  }
-
-  main {
-    padding:
-      16px
-      18px
-      46px;
-  }
-
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .stat {
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stat:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .stat:last-child {
-    border-bottom: 0;
-  }
-
+  .topbar,
+  .masthead,
+  nav.primary,
+  main,
   .gov-footer .links,
   .gov-footer .attribution,
   .gov-footer .disclaimer {
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 3%;
+    padding-right: 3%;
+  }
+
+  .gov-footer .links {
+    grid-template-columns:
+      1fr
+      1fr;
+
+    gap: 35px;
+  }
+
+  .masthead .system {
+    max-width: 35%;
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 720px) {
 
   .topbar {
-    min-height: auto;
+    flex-wrap: wrap;
 
-    padding:
-      7px
-      14px;
+    padding-top: 7px;
+    padding-bottom: 7px;
 
-    gap: 8px 13px;
+    gap: 8px 12px;
   }
 
   .topbar .spacer {
@@ -1032,44 +1143,41 @@ input[type="text"]:focus {
   }
 
   .masthead {
+    min-height: auto;
+
+    padding-top: 16px;
+    padding-bottom: 16px;
+
+    flex-wrap: wrap;
+
     align-items: flex-start;
-
-    padding:
-      14px;
-  }
-
-  .masthead .mark {
-    width: 45px;
-    height: 45px;
-  }
-
-  .masthead .english {
-    font-size: .95rem;
   }
 
   .masthead .system {
-    margin-left: 61px;
+    width: 100%;
+
+    max-width: none;
+
+    margin-left: 74px;
+
+    text-align: left;
   }
 
   nav.primary {
-    padding: 0;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   nav.primary a {
-    min-height: 41px;
-
     padding:
       0
-      11px;
+      12px;
 
-    font-size: .74rem;
+    font-size: .72rem;
   }
 
   main {
-    padding:
-      12px
-      12px
-      40px;
+    padding-top: 18px;
   }
 
   .grid {
@@ -1079,24 +1187,43 @@ input[type="text"]:focus {
   .stat {
     border-right: 0;
 
-    border-bottom: 1px solid var(--border);
+    border-bottom:
+      1px solid var(--border);
   }
 
   .stat:last-child {
     border-bottom: 0;
   }
 
-  section > .body {
-    padding:
-      13px;
+  .gov-footer .links {
+    grid-template-columns: 1fr;
+
+    min-height: auto;
+
+    padding-top: 35px;
   }
 
-  /*
-     Preserve horizontal table behaviour instead
-     of destroying statistical tables on phones.
-  */
+  .accessibility-float,
+  .accessibility-button,
+  .help-float,
+  .back-to-top {
+    right: 16px;
+
+    width: 56px;
+    height: 56px;
+  }
+
+  .accessibility-float,
+  .help-float {
+    bottom: 82px;
+  }
+
+  .back-to-top {
+    bottom: 15px;
+  }
+
   table {
-    min-width: 680px;
+    min-width: 700px;
   }
 
   section {
@@ -1105,19 +1232,17 @@ input[type="text"]:focus {
 
   section > h2 {
     position: relative;
-    z-index: 2;
   }
 }
 
-/* ============================================================
+/* =========================================================
    PRINT
-   ============================================================ */
+   ========================================================= */
 
 @media print {
 
   body {
-    background: #ffffff;
-    color: #000000;
+    background: #fff;
   }
 
   .topbar,
@@ -1125,46 +1250,35 @@ input[type="text"]:focus {
     position: static;
   }
 
-  .topbar,
   nav.primary {
-    box-shadow: none;
-  }
+    background: #fff;
 
-  .topbar {
-    background: #ffffff;
-    color: #000000;
-    border-bottom: 1px solid #999999;
-  }
-
-  nav.primary {
-    background: #ffffff;
-    border-bottom: 2px solid #000000;
+    border-bottom:
+      2px solid #000;
   }
 
   nav.primary a {
-    color: #000000;
-  }
-
-  .masthead {
-    border-bottom: 1px solid #999999;
-  }
-
-  .masthead .english,
-  .masthead .system .name,
-  section > h2 {
-    color: #000000;
+    color: #000;
   }
 
   section,
-  .grid,
-  .stat {
+  .grid {
     box-shadow: none;
   }
 
+  .gov-footer {
+    border-top:
+      3px solid #000;
+  }
+
+  .gov-footer .links,
   .gov-footer .attribution,
   .gov-footer .disclaimer {
-    background: #ffffff;
-    color: #000000;
-    border-top: 1px solid #999999;
+    background: #fff;
+
+    color: #000;
+
+    border-top:
+      1px solid #999;
   }
 }
