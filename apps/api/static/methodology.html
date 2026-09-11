@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="chrome"></div>
+
+<main>
+  <div class="banner">
+    <strong>APIx does not invent an index formula.</strong>
+    It implements the formulae MoSPI specifies for CPI 2024, sourced from the
+    Expert Group Report on Comprehensive Updation of the Consumer Price Index
+    (January 2026, Price Statistics Division, NSO), applied at higher frequency
+    and finer route granularity.
+  </div>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>How a fare becomes an index number</h2>
+    <div class="body" style="font-size:14px">
+      <p style="margin-top:0"><strong>1. Elementary level &mdash; Jevons short (chain-base).</strong>
+      Within one route, one advance-purchase window, one day, the index chains onto
+      its predecessor by the geometric mean of matched price relatives:</p>
+      <p style="margin-left:18px"><code>I&#8348; = GM( p&#8348; / p&#8348;₋₁ ) &times; I&#8348;₋₁</code></p>
+      <p>Matched pairs only. A pair is the same
+      <code>(carrier, flight number, fare brand)</code> in both periods &mdash; comparing
+      "cheapest today" with "cheapest yesterday" would record a change of airline as a
+      change of price.</p>
+
+      <p><strong>2. Route level &mdash; weighted arithmetic mean</strong> across the six
+      advance-purchase windows.</p>
+
+      <p><strong>3. Headline &mdash; Young / Modified Laspeyres</strong>, the weighted
+      arithmetic mean of route indices. Weights come from a period earlier than the
+      prices, which is why this is a Young index rather than a true Laspeyres.</p>
+
+      <p style="margin-bottom:0">Geometric below, arithmetic above. That asymmetry is
+      deliberate CPI structure, not an inconsistency: the Expert Group Report records
+      that CPI 2024 moved the house-rent index <em>from</em> weighted geometric
+      <em>to</em> weighted arithmetic specifically to align it with every other item.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Advance-purchase windows</h2>
+    <div id="buckets"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Five windows are required by Problem Statement 26056. <strong>T+21 was added
+      by us</strong>: the Expert Group Report (section 3.9) records that CPI 2024
+      collects domestic airfare at a 21-day advance-purchase window, making it the
+      only bucket directly comparable with the official index.
+    </div>
+  </section>
+
+  <section>
+    <h2>Parameters in force</h2>
+    <div id="params"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Every index value stores the methodology version and weight-set version that
+      produced it. A revision creates a new version and recomputes forward; a
+      published value can never be silently overwritten, so a revision is never
+      mistaken for a correction.
+    </div>
+  </section>
+
+  <section>
+    <h2>Labelled assumptions</h2>
+    <div id="assumptions"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Listed here rather than left for a reader to discover. Anything APIx cannot
+      source is stated as an assumption and carries that label wherever it appears.
+    </div>
+  </section>
+
+  <section>
+    <h2>Where the methodology comes from</h2>
+    <div class="body" style="font-size:14px">
+      <table>
+        <thead><tr><th>Decision</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Jevons short at the elementary level</td>
+              <td>Expert Group Report &sect;4.6.1</td></tr>
+          <tr><td>Young / Modified Laspeyres, weighted arithmetic mean</td>
+              <td>Expert Group Report &sect;4.6.2</td></tr>
+          <tr><td>21-day domestic advance-purchase window</td>
+              <td>Expert Group Report &sect;3.9</td></tr>
+          <tr><td>Impute missing prices, carry until they reappear, never redistribute weights</td>
+              <td>Expert Group Report &sect;4.6.4</td></tr>
+          <tr><td>Passenger counts as proxy weights for priced items</td>
+              <td>Expert Group Report &sect;4.6.3.3</td></tr>
+          <tr><td>Airfares collected from online platforms</td>
+              <td>MoSPI FAQs on CPI 2024, Q27</td></tr>
+          <tr><td>Transport division weight 8.796 (combined)</td>
+              <td>MoSPI FAQs on CPI 2024, Q39</td></tr>
+          <tr><td>Comparator: item 294 &ldquo;Airfare&rdquo;, COICOP 07.3.3.1.2.01,
+              <em>domestic</em></td>
+              <td>MoSPI open API, verified 7 September 2026</td></tr>
+          <tr><td>Outlier screening (MAD, k = 3.5)</td>
+              <td><strong>Ours.</strong> MoSPI prescribes no outlier rule for airfare</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Known limitations</h2>
+    <div class="body" style="font-size:14px">
+      <table>
+        <thead><tr><th>Limitation</th><th>Consequence</th></tr></thead>
+        <tbody>
+          <tr><td>Route weights are equal (evidence rung 4)</td>
+              <td>Not derived from traffic. No public DGCA per-city-pair passenger
+                  volume table was found (open item O-5)</td></tr>
+          <tr><td>APIx uses its own base period, not 2024 = 100</td>
+              <td><strong>Index levels are not comparable with CPI.</strong> Only
+                  movements are, and only movements are ever reported</td></tr>
+          <tr><td>Coverage: economy, one-way, direct, single adult, 20 routes</td>
+              <td>Narrower than the household consumption basket</td></tr>
+          <tr><td>Lead-time weights are uniform</td>
+              <td>No public Indian distribution of booking horizons was found</td></tr>
+          <tr><td>The airfare <em>item weight</em> within CPI is unknown</td>
+              <td>The Transport division weight of 8.796 covers rail, bus, taxi, fuel
+                  and vehicles too, and is not a stand-in for it</td></tr>
+          <tr><td>No public DGCA monthly average-fare series was found</td>
+              <td>The back-testing comparison named in the problem statement is not
+                  possible as specified; the official CPI airfare index is used
+                  instead</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Machine-readable methodology: <code>/api/v1/methodology</code> &middot;
+  Validation and its limits: <code>/api/v1/backtest</code>
+</footer>
+
+<script src="/static/apix.js"></script>
+<script>
+document.getElementById("chrome").innerHTML = masthead("/methodology");
+
+(async function () {
+  const r = await get("/api/v1/methodology");
+  const d = r.data;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Methodology version</div>
+      <div class="value">${esc(d.version)}</div>
+      <div class="note">effective ${esc(d.effective_from)}</div></div>
+    <div class="stat"><div class="label">Elementary index</div>
+      <div class="value muted">Jevons short</div>
+      <div class="note">chain-base, geometric</div></div>
+    <div class="stat"><div class="label">Higher-level index</div>
+      <div class="value muted">Young</div>
+      <div class="note">weighted arithmetic mean</div></div>
+    <div class="stat"><div class="label">Weight set</div>
+      <div class="value muted">${esc(r.meta.weight_set_version)}</div>
+      <div class="note">evidence rung shown per route</div></div>`;
+
+  document.getElementById("buckets").innerHTML = table([
+    {label: "Bucket", render: x => `<code>${esc(x.code)}</code>`},
+    {label: "Days ahead", num: true, render: x => x.days},
+    {label: "Required by PS 26056", render: x => x.code === "T21" ? "no — added by us" : "yes"},
+    {label: "CPI comparable", render: x => x.cpi_comparable
+      ? '<span class="tag off">yes</span>' : "no"},
+  ], d.lead_time_buckets, x => x.cpi_comparable ? "highlight" : "");
+
+  document.getElementById("params").innerHTML = table([
+    {label: "Parameter", render: x => `<code>${esc(x.k)}</code>`},
+    {label: "Value", render: x => `<code>${esc(JSON.stringify(x.v))}</code>`},
+  ], Object.entries(d.parameters || {}).map(([k, v]) => ({k, v})));
+
+  document.getElementById("assumptions").innerHTML = table([
+    {label: "Assumption", render: x => esc(x)},
+  ], d.labelled_assumptions.map(a => a));
+})();
+</script>
+</body>
+</html>

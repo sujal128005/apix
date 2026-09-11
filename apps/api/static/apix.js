@@ -117,9 +117,9 @@ function barChart(bars, {height = 240, valueKey = "y", labelKey = "x", format = 
 function masthead(active) {
   const pages = [
     ["/", "Dashboard"], ["/routes", "Routes"], ["/lead-time", "Lead time"],
-    ["/api/v1/quotes", "Observations"], ["/api/v1/sources", "Sources"],
-    ["/api/v1/backtest", "Validation"], ["/api/v1/methodology", "Methodology"],
-    ["/api/docs", "API"],
+    ["/quality", "Data quality"], ["/api/v1/sources", "Sources"],
+    ["/api/v1/backtest", "Validation"], ["/methodology", "Methodology"],
+    ["/operations", "Operations"], ["/api/docs", "API"],
   ];
   return `<header class="masthead">
     <div class="org">Ministry of Statistics and Programme Implementation &middot;

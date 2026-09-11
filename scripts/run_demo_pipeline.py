@@ -80,7 +80,19 @@ CARRIER_OFFSET = {
     "6E": Decimal("1.00"), "AI": Decimal("1.12"),
     "SG": Decimal("0.94"), "QP": Decimal("0.97"),
 }
-CARRIERS = [("6E", "SAVER"), ("AI", "ECOVALUE"), ("SG", "SAVER"), ("QP", "AKASAVALUE")]
+# Six flights per route and window, not four. Two reasons: a real Indian trunk
+# route has more than four daily options - IndiGo alone runs several frequencies -
+# and with only four matched pairs every stratum falls below the winsorisation
+# threshold, so the MAD screen never rejects anything and the Data Quality page
+# reports a 0% outlier rate that makes the machinery look untested.
+CARRIERS = [
+    ("6E", "SAVER"),
+    ("6E", "FLEXI"),
+    ("AI", "ECOVALUE"),
+    ("AI", "ECOCOMFORT"),
+    ("SG", "SAVER"),
+    ("QP", "AKASAVALUE"),
+]
 
 
 def _route_character(route: str) -> tuple[int, Decimal, Decimal]:
@@ -119,7 +131,17 @@ def synthetic_fare(route: str, bucket: str, carrier: str, day: int, seat: int) -
     # A short-lived demand spike, at a different time on each route.
     spike = Decimal("1.11") if (day + phase) % 11 == 3 else Decimal("1.00")
     ladder = Decimal("1.00") + (Decimal(seat) * Decimal("0.035"))
-    rupees = base * trend * weekly * spike * CARRIER_OFFSET[carrier] * ladder
+    brand_premium = Decimal("1.28") if seat in (1, 3) else Decimal("1.00")
+    rupees = base * trend * weekly * spike * CARRIER_OFFSET[carrier] * ladder * brand_premium
+
+    # A rare, deterministic anomaly: roughly one quote in 180 is a last-seat
+    # fare several times the going rate. Without it the MAD screen never fires,
+    # the Data Quality page reports a 0% rejection rate, and the outlier
+    # machinery looks untested rather than merely unexercised. Real airfare data
+    # contains these constantly.
+    if (day * 7 + seat * 3 + sum(ord(c) for c in route + bucket)) % 180 == 0:
+        rupees *= Decimal("4.20")
+
     return rupees.quantize(Decimal("0.01"))
 
 

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Quality — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="chrome"></div>
+
+<main>
+  <div class="banner">
+    <strong>This page reports rejections, not just successes.</strong>
+    The counts that matter are the outliers discarded and the observations imputed.
+    A rising rejection rate usually means either the market turned volatile or a
+    parser started producing nonsense &mdash; and those need opposite responses,
+    so both are monitored rather than tuned away.
+  </div>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>What happened to each observation</h2>
+    <div id="funnel"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Quotes entering the index are matched pairs surviving the MAD screen.
+      Excluded quotes are recorded individually in <code>cleaning_event</code> with
+      the rule, threshold and observed value that caused the rejection.
+    </div>
+  </section>
+
+  <section>
+    <h2>Completeness of fare decomposition</h2>
+    <div id="completeness"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      A quote whose components cannot be separated is still usable &mdash; the total
+      is the index price. Only the breakdown is unavailable, so it is marked
+      <code>PARTIAL</code> with low component confidence rather than discarded.
+    </div>
+  </section>
+
+  <section>
+    <h2>Provenance of stored observations</h2>
+    <div id="provenance"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Every observation carries a non-null provenance, enforced by database
+      constraint. <code>SIMULATED_DEMO</code> observations cannot contribute to a
+      published headline index &mdash; a trigger refuses the write.
+    </div>
+  </section>
+
+  <section>
+    <h2>Compliance decisions</h2>
+    <div id="decisions"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      One row is written for every request the gate evaluates, whether allowed or
+      refused. A blocked source appears here as blocked.
+    </div>
+  </section>
+
+  <section>
+    <h2>Daily collection volume</h2>
+    <div id="daily"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      A sudden fall is the earliest visible sign that a source has stopped
+      responding, usually before the index itself looks wrong.
+    </div>
+  </section>
+</main>
+
+<footer>
+  Trace any single observation through its full lineage at
+  <code>/api/v1/provenance/{quote_id}</code>.
+</footer>
+
+<script src="/static/apix.js"></script>
+<script>
+document.getElementById("chrome").innerHTML = masthead("/quality");
+
+function countTable(obj, label) {
+  const total = Object.values(obj).reduce((a, b) => a + b, 0);
+  const rows = Object.entries(obj).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => ({k, v, pct: total ? (v / total * 100) : 0}));
+  return table([
+    {label, render: x => x.k === "SIMULATED_DEMO" ? provTag(x.k) : `<code>${esc(x.k)}</code>`},
+    {label: "Count", num: true, render: x => x.v.toLocaleString("en-IN")},
+    {label: "Share", num: true, render: x => x.pct.toFixed(1) + "%"},
+  ], rows);
+}
+
+(async function () {
+  const r = await get("/api/v1/quality");
+  const d = r.data, t = d.totals, rates = d.rates;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Observations stored</div>
+      <div class="value">${t.quotes.toLocaleString("en-IN")}</div>
+      <div class="note">${t.strata_computed.toLocaleString("en-IN")} strata computed</div></div>
+    <div class="stat"><div class="label">Outlier rejection rate</div>
+      <div class="value">${rates.outlier_rejection_pct.toFixed(2)}%</div>
+      <div class="note">${t.quotes_excluded_as_outliers.toLocaleString("en-IN")} pairs discarded</div></div>
+    <div class="stat"><div class="label">Imputation rate</div>
+      <div class="value">${rates.imputation_pct.toFixed(2)}%</div>
+      <div class="note">${t.quotes_imputed.toLocaleString("en-IN")} imputed, not observed</div></div>
+    <div class="stat"><div class="label">Full decomposition</div>
+      <div class="value">${rates.complete_pct.toFixed(1)}%</div>
+      <div class="note">base fare, taxes and UDF separable</div></div>`;
+
+  document.getElementById("funnel").innerHTML = table([
+    {label: "Stage", render: x => x.k},
+    {label: "Count", num: true, render: x => x.v.toLocaleString("en-IN")},
+  ], [
+    {k: "Observations stored", v: t.quotes},
+    {k: "Entered the index", v: t.quotes_entering_index},
+    {k: "Excluded as outliers (MAD screen)", v: t.quotes_excluded_as_outliers},
+    {k: "Strata with too few quotes to compute", v: t.strata_insufficient},
+    {k: "Imputed rather than observed", v: t.quotes_imputed},
+  ]);
+
+  document.getElementById("completeness").innerHTML =
+    countTable(d.by_component_confidence, "Component confidence");
+  document.getElementById("provenance").innerHTML =
+    countTable(d.by_provenance, "Provenance");
+  document.getElementById("decisions").innerHTML =
+    countTable(d.by_compliance_decision, "Gate decision");
+
+  document.getElementById("daily").innerHTML = lineChart(
+    d.daily.map(x => ({x: x.date.slice(5), y: x.quotes})),
+    {format: v => Math.round(v).toLocaleString("en-IN")});
+})();
+</script>
+</body>
+</html>

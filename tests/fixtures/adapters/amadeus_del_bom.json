@@ -1,0 +1,46 @@
+{
+  "_comment": "Shaped to the Amadeus Flight Offers Search v2 published schema. NOT a captured live response - open item O-3 is unresolved and no production call has been made. Fare values are illustrative.",
+  "meta": {"count": 3},
+  "data": [
+    {
+      "type": "flight-offer", "id": "1", "oneWay": false,
+      "itineraries": [{"duration": "PT2H10M", "segments": [{
+        "departure": {"iataCode": "DEL", "at": "2026-09-15T06:15:00"},
+        "arrival": {"iataCode": "BOM", "at": "2026-09-15T08:25:00"},
+        "carrierCode": "6E", "number": "2134", "numberOfStops": 0}]}],
+      "price": {"currency": "INR", "total": "5499.00", "base": "4200.00",
+                "grandTotal": "5499.00",
+                "fees": [{"amount": "0.00", "type": "SUPPLIER"},
+                         {"amount": "149.00", "type": "TICKETING"}]},
+      "travelerPricings": [{"travelerId": "1", "fareOption": "STANDARD",
+        "fareDetailsBySegment": [{"segmentId": "1", "cabin": "ECONOMY",
+                                  "brandedFare": "SAVER", "class": "U"}]}]
+    },
+    {
+      "type": "flight-offer", "id": "2",
+      "itineraries": [{"duration": "PT2H05M", "segments": [{
+        "departure": {"iataCode": "DEL", "at": "2026-09-15T09:40:00"},
+        "arrival": {"iataCode": "BOM", "at": "2026-09-15T11:45:00"},
+        "carrierCode": "AI", "number": "805", "numberOfStops": 0}]}],
+      "price": {"currency": "INR", "total": "6890.00", "base": "5300.00",
+                "grandTotal": "6890.00", "fees": []},
+      "travelerPricings": [{"travelerId": "1",
+        "fareDetailsBySegment": [{"segmentId": "1", "cabin": "ECONOMY",
+                                  "brandedFare": "ECOVALUE"}]}]
+    },
+    {
+      "_note": "One-stop itinerary. Must be skipped: a connecting flight is a different product from a direct one.",
+      "type": "flight-offer", "id": "3",
+      "itineraries": [{"duration": "PT6H30M", "segments": [
+        {"departure": {"iataCode": "DEL", "at": "2026-09-15T14:00:00"},
+         "arrival": {"iataCode": "AMD", "at": "2026-09-15T15:35:00"},
+         "carrierCode": "SG", "number": "8194", "numberOfStops": 0},
+        {"departure": {"iataCode": "AMD", "at": "2026-09-15T18:10:00"},
+         "arrival": {"iataCode": "BOM", "at": "2026-09-15T19:20:00"},
+         "carrierCode": "SG", "number": "2971", "numberOfStops": 0}]}],
+      "price": {"currency": "INR", "total": "4100.00", "base": "3200.00",
+                "grandTotal": "4100.00", "fees": []},
+      "travelerPricings": []
+    }
+  ]
+}

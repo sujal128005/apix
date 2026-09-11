@@ -14,13 +14,18 @@ a judge and the numbers.
 
 from __future__ import annotations
 
+import logging
+import os
+import time
+from collections import defaultdict, deque
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import sqlalchemy as sa
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,7 +38,29 @@ from schemas.models.indexing import IndexObservation
 from schemas.models.reference import LeadTimeBucket, Route, Source
 from schemas.models.versioning import MethodologyVersion, RouteWeight, WeightSetVersion
 
+logger = logging.getLogger("apix.api")
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# --------------------------------------------------------------------------
+# Security posture
+#
+# The public API is read-only and unauthenticated by design: these are official
+# statistics, and putting a key in front of them would be theatre. What it does
+# need is protection against a single client exhausting the database, and
+# headers that stop the JSON being rendered as something else.
+#
+# CORS is an allow-list, never "*". A wildcard on a government data endpoint
+# invites any page anywhere to read it as the user - harmless here, but the
+# habit is not.
+# --------------------------------------------------------------------------
+
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("APIX_CORS_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
+    if origin.strip()
+]
+RATE_LIMIT_PER_MINUTE = int(os.environ.get("APIX_RATE_LIMIT_PER_MINUTE", "120"))
 
 app = FastAPI(
     title="APIx — Real-time Airfare Price Index",
@@ -49,6 +76,82 @@ app = FastAPI(
 
 _engine = sa.create_engine(DbSettings.from_env().app_url(), future=True)
 _Session = sessionmaker(bind=_engine, expire_on_commit=False)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["Accept", "Content-Type"],
+)
+
+_requests: dict[str, deque[float]] = defaultdict(deque)
+
+
+@app.middleware("http")
+async def rate_limit_and_secure_headers(request: Request, call_next: Any) -> Response:
+    """A sliding-window limiter and a small set of security headers.
+
+    In-process and per-worker, which is the honest scope: behind several workers
+    the effective limit multiplies. That is adequate for a prototype and is
+    stated rather than glossed - a reader who assumes it is a global limit would
+    be wrong, and a limiter that quietly does less than advertised is worse than
+    none.
+    """
+    client = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    window = _requests[client]
+    while window and now - window[0] > 60.0:
+        window.popleft()
+
+    if len(window) >= RATE_LIMIT_PER_MINUTE:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "type": "about:blank",
+                "title": "Too Many Requests",
+                "status": 429,
+                "detail": (
+                    f"More than {RATE_LIMIT_PER_MINUTE} requests in 60 seconds. "
+                    "This is a per-process limit on a prototype."
+                ),
+            },
+            headers={"Retry-After": "60"},
+        )
+    window.append(now)
+
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    # Inline styles and scripts are used by the dashboard pages, so 'unsafe-inline'
+    # is required; no remote origin is permitted, which is the property that
+    # matters here - every asset is served by this process.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+    )
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled(request: Request, exc: Exception) -> JSONResponse:
+    """Never leak an internal error to a caller.
+
+    A stack trace in an API response tells an attacker the framework, the file
+    layout and often the query. It is logged in full and returned as nothing.
+    """
+    logger.exception("unhandled error on %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "type": "about:blank",
+            "title": "Internal Server Error",
+            "status": 500,
+            "detail": "The request could not be completed. The error has been logged.",
+        },
+    )
 
 
 def _decimal(value: Decimal | None) -> float | None:
@@ -379,6 +482,217 @@ def quotes(
         }
 
 
+@app.get("/api/v1/quality", tags=["quality"])
+def quality() -> dict[str, Any]:
+    """What was collected, what was kept, and what was thrown away.
+
+    A data-quality page that only reports successes is decoration. The counts
+    that matter here are the rejections and the imputations: a rising outlier
+    rate or a rising imputation rate is usually the first sign that a source has
+    quietly stopped working, well before anyone notices the index looks odd.
+    """
+    with _Session() as session:
+        by_status = dict(
+            session.execute(
+                sa.select(NormalisedQuote.quality_status, sa.func.count())
+                .group_by(NormalisedQuote.quality_status)
+            ).all()
+        )
+        by_provenance = dict(
+            session.execute(
+                sa.select(NormalisedQuote.provenance, sa.func.count())
+                .group_by(NormalisedQuote.provenance)
+            ).all()
+        )
+        by_confidence = dict(
+            session.execute(
+                sa.select(NormalisedQuote.component_confidence, sa.func.count())
+                .group_by(NormalisedQuote.component_confidence)
+            ).all()
+        )
+        by_decision = dict(
+            session.execute(
+                sa.select(ComplianceDecision.decision, sa.func.count())
+                .group_by(ComplianceDecision.decision)
+            ).all()
+        )
+
+        total_quotes = sum(by_status.values())
+        imputed = session.execute(
+            sa.select(sa.func.count())
+            .select_from(NormalisedQuote)
+            .where(NormalisedQuote.imputation_code == "Y")
+        ).scalar_one()
+
+        index_rows = session.execute(
+            sa.select(
+                sa.func.coalesce(sa.func.sum(IndexObservation.input_quote_count), 0),
+                sa.func.coalesce(sa.func.sum(IndexObservation.excluded_count), 0),
+                sa.func.coalesce(sa.func.sum(IndexObservation.imputed_count), 0),
+                sa.func.count(),
+            ).where(IndexObservation.level == IndexLevel.STRATUM)
+        ).one()
+        used, excluded, insufficient, strata = index_rows
+
+        daily = session.execute(
+            sa.select(
+                NormalisedQuote.collected_date,
+                sa.func.count(),
+                sa.func.count(sa.func.nullif(NormalisedQuote.quality_status, "COMPLETE")),
+            )
+            .group_by(NormalisedQuote.collected_date)
+            .order_by(NormalisedQuote.collected_date)
+        ).all()
+
+        return {
+            "data": {
+                "totals": {
+                    "quotes": total_quotes,
+                    "strata_computed": strata,
+                    "quotes_entering_index": used,
+                    "quotes_excluded_as_outliers": excluded,
+                    "strata_insufficient": insufficient,
+                    "quotes_imputed": imputed,
+                },
+                "rates": {
+                    "outlier_rejection_pct": (
+                        round(excluded / (used + excluded) * 100, 2) if used + excluded else 0.0
+                    ),
+                    "imputation_pct": (
+                        round(imputed / total_quotes * 100, 2) if total_quotes else 0.0
+                    ),
+                    "complete_pct": (
+                        round(by_status.get("COMPLETE", 0) / total_quotes * 100, 2)
+                        if total_quotes
+                        else 0.0
+                    ),
+                },
+                "by_quality_status": by_status,
+                "by_provenance": by_provenance,
+                "by_component_confidence": by_confidence,
+                "by_compliance_decision": by_decision,
+                "daily": [
+                    {
+                        "date": day.isoformat(),
+                        "quotes": count,
+                        "not_complete": partial,
+                    }
+                    for day, count, partial in daily
+                ],
+                "interpretation": {
+                    "outlier_rejection_pct": (
+                        "Share of matched pairs rejected by the MAD screen before the "
+                        "elementary index. A sustained rise means either the market "
+                        "turned volatile or a parser started producing nonsense - the "
+                        "two need opposite responses, so this is monitored rather than "
+                        "tuned away."
+                    ),
+                    "imputation_pct": (
+                        "Share of observations imputed rather than observed. CPI 2024 "
+                        "imputes missing prices and carries them until the item "
+                        "reappears; a stratum imputed for weeks is a genuine weakness "
+                        "and is shown rather than buried."
+                    ),
+                },
+            },
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/provenance/{quote_id}", tags=["quality"])
+def provenance(quote_id: str) -> dict[str, Any]:
+    """Trace one fare quote back through every step that produced it.
+
+    index value -> route -> observation -> raw quote -> raw response ->
+    collection request -> compliance decision -> source
+
+    This is the claim the whole project rests on: no number appears anywhere in
+    APIx that cannot be walked back to a fare a source actually quoted, the
+    moment it was collected, and the compliance decision that permitted the
+    request.
+    """
+    from uuid import UUID as _UUID
+
+    from schemas.models.collection import CollectionRequest, RawQuote, RawResponse
+
+    try:
+        parsed = _UUID(quote_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="quote_id must be a UUID.") from exc
+
+    with _Session() as session:
+        quote = session.get(NormalisedQuote, parsed)
+        if quote is None:
+            raise HTTPException(status_code=404, detail="No such observation.")
+
+        route = session.get(Route, quote.route_id)
+        bucket = session.get(LeadTimeBucket, quote.bucket_id)
+        source = session.get(Source, quote.source_id)
+
+        raw = session.get(RawQuote, quote.raw_quote_id) if quote.raw_quote_id else None
+        response = session.get(RawResponse, raw.raw_response_id) if raw else None
+        request = session.get(CollectionRequest, response.request_id) if response else None
+        decision = (
+            session.execute(
+                sa.select(ComplianceDecision)
+                .where(ComplianceDecision.request_id == request.id)
+                .limit(1)
+            ).scalar_one_or_none()
+            if request
+            else None
+        )
+
+        return {
+            "data": {
+                "observation": {
+                    "id": str(quote.id),
+                    "route": route.code if route else None,
+                    "bucket": bucket.code if bucket else None,
+                    "carrier": quote.carrier,
+                    "flight_no": quote.flight_no,
+                    "fare_brand": quote.fare_brand,
+                    "total_fare": _decimal(quote.total_fare),
+                    "currency": quote.currency,
+                    "collected_at": quote.collected_at.isoformat(),
+                    "provenance": quote.provenance,
+                    "quality_status": quote.quality_status,
+                    "imputation_code": quote.imputation_code,
+                },
+                "raw_quote": None if raw is None else {"id": str(raw.id), "payload": raw.payload},
+                "raw_response": None
+                if response is None
+                else {
+                    "sha256": response.sha256,
+                    "http_status": response.http_status,
+                    "fetched_at": response.fetched_at.isoformat(),
+                },
+                "collection_request": None
+                if request is None
+                else {
+                    "query_hash": request.query_hash,
+                    "travel_date": request.travel_date.isoformat(),
+                    "collected_date": request.collected_date.isoformat(),
+                },
+                "compliance_decision": None
+                if decision is None
+                else {
+                    "decision": decision.decision,
+                    "decided_at": decision.decided_at.isoformat(),
+                    "path": decision.path,
+                    "user_agent": decision.user_agent,
+                    "matched_rule": decision.matched_rule,
+                },
+                "source": None
+                if source is None
+                else {"code": source.code, "name": source.name, "tier": source.tier},
+                "chain_complete": all(
+                    x is not None for x in (raw, response, request, decision, source)
+                ),
+            },
+            "meta": _meta(session),
+        }
+
+
 @app.get("/api/v1/sources", tags=["compliance"])
 def sources() -> dict[str, Any]:
     """Every source, its tier, and its most recent compliance decision.
@@ -418,6 +732,170 @@ def sources() -> dict[str, Any]:
                 }
                 for source in rows
             ],
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/operations", tags=["operations"])
+def operations() -> dict[str, Any]:
+    """Operational state: is the pipeline healthy right now?
+
+    This answers a different question from the public dashboard, for a different
+    reader. The dashboard reader wants to know what airfares are doing; this
+    reader wants to know whether to trust today's numbers, and if not, which
+    part broke.
+
+    Written in operational language deliberately. A statistical operations
+    console, not an agent control room.
+    """
+    from schemas.models.collection import CollectionJob, CollectionRequest, RawResponse
+
+    with _Session() as session:
+        jobs = session.execute(
+            sa.select(CollectionJob).order_by(CollectionJob.started_at.desc()).limit(15)
+        ).scalars().all()
+
+        freshest = session.execute(
+            sa.select(sa.func.max(NormalisedQuote.collected_at))
+        ).scalar_one_or_none()
+        latest_index = session.execute(
+            sa.select(sa.func.max(IndexObservation.obs_date))
+        ).scalar_one_or_none()
+
+        now = datetime.now(UTC)
+        age_hours = (
+            round((now - freshest).total_seconds() / 3600, 1) if freshest else None
+        )
+
+        # Per source: what the gate last decided, and whether anything arrived.
+        source_rows = session.execute(
+            sa.select(Source).order_by(Source.tier, Source.code)
+        ).scalars().all()
+        last_decision: dict[Any, ComplianceDecision] = {}
+        for decision in session.execute(
+            sa.select(ComplianceDecision).order_by(ComplianceDecision.decided_at.desc())
+        ).scalars():
+            last_decision.setdefault(decision.source_id, decision)
+
+        quote_counts = dict(
+            session.execute(
+                sa.select(NormalisedQuote.source_id, sa.func.count())
+                .group_by(NormalisedQuote.source_id)
+            ).all()
+        )
+
+        decision_mix = dict(
+            session.execute(
+                sa.select(ComplianceDecision.decision, sa.func.count())
+                .group_by(ComplianceDecision.decision)
+            ).all()
+        )
+
+        failed_responses = session.execute(
+            sa.select(sa.func.count())
+            .select_from(RawResponse)
+            .where(sa.or_(RawResponse.http_status.is_(None), RawResponse.http_status >= 400))
+        ).scalar_one()
+
+        requests_total = session.execute(
+            sa.select(sa.func.count()).select_from(CollectionRequest)
+        ).scalar_one()
+
+        # Freshness is judged, not just reported: a number with no threshold
+        # beside it leaves every reader to invent their own.
+        if age_hours is None:
+            freshness = "NO_DATA"
+        elif age_hours <= 26:
+            freshness = "CURRENT"
+        elif age_hours <= 72:
+            freshness = "STALE"
+        else:
+            freshness = "OVERDUE"
+
+        alerts: list[dict[str, str]] = []
+        if freshness in ("STALE", "OVERDUE"):
+            alerts.append({
+                "level": "warning" if freshness == "STALE" else "critical",
+                "message": f"Most recent observation is {age_hours}h old ({freshness}).",
+            })
+        if failed_responses:
+            alerts.append({
+                "level": "warning",
+                "message": f"{failed_responses} stored response(s) carry a failed HTTP status.",
+            })
+        blocked = sum(v for k, v in decision_mix.items() if str(k).startswith("BLOCKED"))
+        if blocked:
+            alerts.append({
+                "level": "info",
+                "message": (
+                    f"{blocked} request(s) refused by the compliance gate. This is "
+                    "expected where a source's robots.txt disallows collection."
+                ),
+            })
+        enabled = [s for s in source_rows if s.enabled]
+        if not enabled:
+            alerts.append({
+                "level": "critical",
+                "message": "No source is enabled. Nothing will be collected.",
+            })
+
+        return {
+            "data": {
+                "freshness": {
+                    "status": freshness,
+                    "latest_observation_at": freshest.isoformat() if freshest else None,
+                    "age_hours": age_hours,
+                    "latest_index_date": latest_index.isoformat() if latest_index else None,
+                    "thresholds": {"current_within_hours": 26, "stale_within_hours": 72},
+                },
+                "counters": {
+                    "collection_requests": requests_total,
+                    "responses_with_failed_status": failed_responses,
+                    "sources_total": len(source_rows),
+                    "sources_enabled": len(enabled),
+                },
+                "compliance_decisions": decision_mix,
+                "alerts": alerts,
+                "jobs": [
+                    {
+                        "started_at": job.started_at.isoformat(),
+                        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+                        "status": job.status,
+                        "requests_total": job.requests_total,
+                        "requests_ok": job.requests_ok,
+                        "requests_blocked": job.requests_blocked,
+                        "parse_failures": job.parse_failures,
+                    }
+                    for job in jobs
+                ],
+                "sources": [
+                    {
+                        "code": source.code,
+                        "name": source.name,
+                        "tier": source.tier,
+                        "transport": source.transport,
+                        "enabled": source.enabled,
+                        "adapter_key": source.adapter_key,
+                        "observations": quote_counts.get(source.id, 0),
+                        "last_decision": (
+                            last_decision[source.id].decision
+                            if source.id in last_decision
+                            else None
+                        ),
+                        "last_decision_at": (
+                            last_decision[source.id].decided_at.isoformat()
+                            if source.id in last_decision
+                            else None
+                        ),
+                        "matched_rule": (
+                            last_decision[source.id].matched_rule
+                            if source.id in last_decision
+                            else None
+                        ),
+                    }
+                    for source in source_rows
+                ],
+            },
             "meta": _meta(session),
         }
 
@@ -650,3 +1128,15 @@ if STATIC_DIR.exists():
     @app.get("/lead-time", include_in_schema=False)
     def lead_time_page() -> FileResponse:
         return FileResponse(STATIC_DIR / "lead-time.html")
+
+    @app.get("/quality", include_in_schema=False)
+    def quality_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "quality.html")
+
+    @app.get("/methodology", include_in_schema=False)
+    def methodology_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "methodology.html")
+
+    @app.get("/operations", include_in_schema=False)
+    def operations_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "operations.html")

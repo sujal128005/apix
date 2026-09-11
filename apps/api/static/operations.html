@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="chrome"></div>
+
+<main>
+  <div class="banner">
+    <strong>Operations console.</strong>
+    This page answers a different question from the public dashboard, for a
+    different reader. The dashboard reader wants to know what airfares are doing.
+    The reader here wants to know whether today&rsquo;s numbers can be trusted
+    and, if not, which part broke.
+  </div>
+
+  <div id="alerts"></div>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Source status</h2>
+    <div id="sources"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Sources are opt-in and disabled by default. <code>BLOCKED_ROBOTS</code> is a
+      compliance outcome, not a fault: the adapter exists, the gate refuses to run
+      it, and no override exists in the codebase.
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent collection runs</h2>
+    <div id="jobs"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      A run in which every restricted source was correctly refused is a
+      <code>SUCCESS</code>. Only a source that broke rather than declined counts as a
+      failure &mdash; conflating the two would make the compliance layer look like an
+      outage.
+    </div>
+  </section>
+
+  <section>
+    <h2>Compliance gate decisions</h2>
+    <div id="decisions"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      One row is written for every request evaluated, allowed or refused. These
+      counts are the audit trail, queryable at <code>/api/v1/quality</code>.
+    </div>
+  </section>
+</main>
+
+<footer>
+  Freshness thresholds and alert rules are defined in
+  <code>/api/v1/operations</code>. A figure with no threshold beside it leaves
+  every reader to invent their own.
+</footer>
+
+<script src="/static/apix.js"></script>
+<script>
+document.getElementById("chrome").innerHTML = masthead("/operations");
+
+const FRESHNESS_TAG = {CURRENT: "live", STALE: "sim", OVERDUE: "stop", NO_DATA: "stop"};
+
+(async function () {
+  const r = await get("/api/v1/operations");
+  const d = r.data, f = d.freshness, c = d.counters;
+
+  document.getElementById("alerts").innerHTML = d.alerts.length
+    ? d.alerts.map(a => `<div class="banner"><strong>${esc(a.level.toUpperCase())}.</strong>
+        ${esc(a.message)}</div>`).join("")
+    : `<div class="banner" style="background:#f0f7f2;border-color:#a8c8b4;border-left-color:var(--ok)">
+         <strong style="color:var(--ok)">No alerts.</strong> Collection is current and
+         no source is reporting a fault.</div>`;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Data freshness</div>
+      <div class="value muted"><span class="tag ${FRESHNESS_TAG[f.status] || "off"}">${esc(f.status)}</span></div>
+      <div class="note">${f.age_hours === null ? "no observations" :
+        f.age_hours + "h since last observation · current within " + f.thresholds.current_within_hours + "h"}</div></div>
+    <div class="stat"><div class="label">Latest index date</div>
+      <div class="value muted">${esc(f.latest_index_date)}</div>
+      <div class="note">most recent computation</div></div>
+    <div class="stat"><div class="label">Sources enabled</div>
+      <div class="value">${c.sources_enabled} <span style="font-size:16px;color:var(--ink-faint)">/ ${c.sources_total}</span></div>
+      <div class="note">opt-in; disabled unless reviewed</div></div>
+    <div class="stat"><div class="label">Requests issued</div>
+      <div class="value">${c.collection_requests.toLocaleString("en-IN")}</div>
+      <div class="note">${c.responses_with_failed_status} response(s) with a failed status</div></div>`;
+
+  document.getElementById("sources").innerHTML = table([
+    {label: "Source", render: x => esc(x.name)},
+    {label: "Tier", num: true, render: x => x.tier},
+    {label: "Adapter", render: x => `<code>${esc(x.adapter_key)}</code>`},
+    {label: "Enabled", render: x => x.enabled
+      ? '<span class="tag live">yes</span>' : '<span class="tag off">no</span>'},
+    {label: "Last gate decision", render: x => x.last_decision
+      ? `<span class="tag ${x.last_decision.startsWith("BLOCKED") ? "stop" :
+          x.last_decision === "ALLOWED" ? "live" : "sim"}">${esc(x.last_decision)}</span>`
+      : "—"},
+    {label: "Observations", num: true, render: x => x.observations.toLocaleString("en-IN")},
+    {label: "Rule applied", render: x => esc(x.matched_rule)},
+  ], d.sources);
+
+  document.getElementById("jobs").innerHTML = table([
+    {label: "Started", render: x => esc(x.started_at.replace("T", " ").slice(0, 19))},
+    {label: "Status", render: x => `<span class="tag ${x.status === "SUCCESS" ? "live" :
+      x.status === "PARTIAL" ? "sim" : "stop"}">${esc(x.status)}</span>`},
+    {label: "Requests", num: true, render: x => x.requests_total},
+    {label: "Collected", num: true, render: x => x.requests_ok},
+    {label: "Blocked", num: true, render: x => x.requests_blocked},
+    {label: "Parse failures", num: true, render: x => x.parse_failures},
+  ], d.jobs);
+
+  const mix = Object.entries(d.compliance_decisions).sort((a, b) => b[1] - a[1]);
+  const total = mix.reduce((a, [, v]) => a + v, 0);
+  document.getElementById("decisions").innerHTML = table([
+    {label: "Decision", render: x => `<span class="tag ${x[0].startsWith("BLOCKED") ? "stop" :
+      x[0] === "ALLOWED" ? "live" : "sim"}">${esc(x[0])}</span>`},
+    {label: "Count", num: true, render: x => x[1].toLocaleString("en-IN")},
+    {label: "Share", num: true, render: x => (x[1] / total * 100).toFixed(1) + "%"},
+  ], mix);
+})();
+</script>
+</body>
+</html>

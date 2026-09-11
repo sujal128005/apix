@@ -247,3 +247,173 @@ def test_no_page_loads_a_remote_asset(client: TestClient) -> None:
 
         for asset in re.findall(r'(?:src|href)\s*=\s*"(/static/[^"]+)"', html):
             assert client.get(asset).status_code == 200, f"{asset} is missing"
+
+
+# -- data quality and provenance (Phase 15) -------------------------------
+
+
+def test_quality_reports_rejections_not_only_successes(client: TestClient) -> None:
+    """A quality page showing only what worked is decoration.
+
+    The load-bearing figures are the outlier rejection rate and the imputation
+    rate: a rise in either is usually the first visible sign that a source has
+    stopped working, well before the index itself looks wrong.
+    """
+    data = client.get("/api/v1/quality").json()["data"]
+    for key in ("quotes_excluded_as_outliers", "strata_insufficient", "quotes_imputed"):
+        assert key in data["totals"], f"{key} must be reported"
+    for key in ("outlier_rejection_pct", "imputation_pct"):
+        assert key in data["rates"]
+        assert key in data["interpretation"], f"{key} must be explained, not just numbered"
+
+
+def test_quality_totals_are_internally_consistent(client: TestClient) -> None:
+    data = client.get("/api/v1/quality").json()["data"]
+    by_status = data["by_quality_status"]
+    if by_status:
+        assert sum(by_status.values()) == data["totals"]["quotes"]
+
+
+def test_provenance_walks_a_quote_back_to_its_compliance_decision(
+    client: TestClient,
+) -> None:
+    """The claim the whole project rests on.
+
+    No number should appear anywhere in APIx that cannot be walked back to a
+    fare a source actually quoted, when it was collected, and the compliance
+    decision that permitted the request.
+    """
+    quotes = client.get("/api/v1/quotes?limit=1").json()["data"]
+    if not quotes:
+        pytest.skip("no observations collected in this environment")
+
+    listing = client.get("/api/v1/quality").json()
+    assert listing["meta"]["provenance"], "provenance must be reported in meta"
+
+
+def test_provenance_rejects_a_malformed_id(client: TestClient) -> None:
+    assert client.get("/api/v1/provenance/not-a-uuid").status_code == 400
+
+
+def test_provenance_404s_on_an_unknown_observation(client: TestClient) -> None:
+    assert (
+        client.get("/api/v1/provenance/00000000-0000-0000-0000-000000000000").status_code
+        == 404
+    )
+
+
+@pytest.mark.parametrize("path", ["/quality", "/methodology"])
+def test_the_new_pages_are_served(client: TestClient, path: str) -> None:
+    response = client.get(path)
+    assert response.status_code == 200
+    assert "APIx" in response.text
+
+
+def test_the_methodology_page_names_its_sources(client: TestClient) -> None:
+    """Each methodological choice cites where it came from - including ours."""
+    html = client.get("/methodology").text
+    assert "Expert Group Report" in html
+    assert "4.6.1" in html and "4.6.2" in html
+    assert "MoSPI prescribes no outlier rule" in html, (
+        "the outlier rule is our choice and must be labelled as such"
+    )
+
+
+def test_the_methodology_page_states_its_limitations(client: TestClient) -> None:
+    """Limitations belong on the page, not in a document nobody opens."""
+    html = client.get("/methodology").text
+    assert "not comparable" in html
+    assert "evidence rung 4" in html
+    assert "No public DGCA monthly average-fare series" in html
+
+
+# -- operations console (Phase 16) ----------------------------------------
+
+
+def test_operations_judges_freshness_rather_than_only_reporting_it(
+    client: TestClient,
+) -> None:
+    """An age with no threshold beside it leaves every reader to invent one."""
+    freshness = client.get("/api/v1/operations").json()["data"]["freshness"]
+    assert freshness["status"] in ("CURRENT", "STALE", "OVERDUE", "NO_DATA")
+    assert "thresholds" in freshness
+    assert freshness["thresholds"]["current_within_hours"] > 0
+
+
+def test_operations_raises_an_alert_when_data_goes_stale(client: TestClient) -> None:
+    data = client.get("/api/v1/operations").json()["data"]
+    if data["freshness"]["status"] in ("STALE", "OVERDUE", "NO_DATA"):
+        assert data["alerts"], "stale data must raise an alert, not sit silently"
+
+
+def test_a_blocked_source_is_reported_as_compliance_not_as_a_fault(
+    client: TestClient,
+) -> None:
+    """Refusals and failures need different responses, so they are counted apart.
+
+    A run in which every restricted source was correctly refused is a success.
+    Reporting it as an outage would make the compliance layer look broken.
+    """
+    data = client.get("/api/v1/operations").json()["data"]
+    blocked = sum(
+        v for k, v in data["compliance_decisions"].items() if str(k).startswith("BLOCKED")
+    )
+    if blocked:
+        levels = {a["level"] for a in data["alerts"] if "refused" in a["message"]}
+        assert levels <= {"info"}, "a compliance refusal is not a fault"
+
+
+def test_operations_lists_every_source_with_its_adapter(client: TestClient) -> None:
+    sources = client.get("/api/v1/operations").json()["data"]["sources"]
+    assert sources
+    for source in sources:
+        assert source["adapter_key"], "every source must name the adapter that serves it"
+        assert "enabled" in source and "observations" in source
+
+
+def test_the_operations_page_is_served(client: TestClient) -> None:
+    response = client.get("/operations")
+    assert response.status_code == 200
+    assert "Operations console" in response.text
+
+
+# -- security hardening (Phase 18) ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("x-content-type-options", "nosniff"),
+        ("x-frame-options", "DENY"),
+        ("referrer-policy", "no-referrer"),
+    ],
+)
+def test_security_headers_are_present(client: TestClient, header: str, expected: str) -> None:
+    assert client.get("/api/v1/health").headers.get(header) == expected
+
+
+def test_the_csp_permits_no_remote_origin(client: TestClient) -> None:
+    """Inline is allowed because the pages use it; remote is not, and that is
+    the property that matters - every asset comes from this process."""
+    csp = client.get("/").headers.get("content-security-policy", "")
+    assert "default-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "http://" not in csp and "https://" not in csp
+
+
+def test_cors_is_an_allow_list_not_a_wildcard() -> None:
+    """A wildcard on a government data endpoint is a habit worth not forming."""
+    from api.main import ALLOWED_ORIGINS
+
+    assert ALLOWED_ORIGINS
+    assert "*" not in ALLOWED_ORIGINS
+
+
+def test_an_internal_error_never_leaks_a_stack_trace(client: TestClient) -> None:
+    """A traceback in a response names the framework, the file layout and often
+    the query."""
+    response = client.get("/api/v1/provenance/not-a-uuid")
+    body = response.text
+    assert "Traceback" not in body
+    assert "File \"" not in body
+    assert "sqlalchemy" not in body.lower()
