@@ -14,6 +14,7 @@ dependencies = [
     "pydantic>=2.7",
     "python-dotenv>=1.0",
     "protego>=0.3",
+    "apscheduler>=3.10",
     "certifi>=2024.2",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -70,6 +71,12 @@ known-first-party = ["schemas", "db", "tests"]
 # --------------------------------------------------------------------------
 # Types
 # --------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+# APScheduler ships no type information. Narrowly scoped so the rest of the
+# codebase keeps strict checking; the scheduler's own surface is typed here.
+module = ["apscheduler.*"]
+ignore_missing_imports = true
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

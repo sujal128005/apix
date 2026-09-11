@@ -1,1284 +1,327 @@
-/* =========================================================
-   APIx
-   MoSPI-inspired government portal visual system
-   UI ONLY - functionality/HTML/JS unchanged
-   ========================================================= */
+/* ==========================================================================
+   APIx — visual system
+   Modelled on the information design language of Indian government statistics
+   portals (MoSPI, india.gov.in). Institutional, information-dense, restrained.
+
+   Deliberately NOT a card-based SaaS dashboard: small radii, borders rather
+   than shadows, a dark navigation band, and a statistics strip rather than
+   floating KPI tiles.
+
+   No State Emblem, no government seals, no fabricated official contacts or
+   social accounts. Its display is restricted under the State Emblem of India
+   (Prohibition of Improper Use) Act, 2005, and this is a student project that
+   must not represent itself as an official portal.
+
+   System fonts only. No CDN, no build step: a demo must not be able to fail
+   because a stylesheet did not download.
+
+   Sections: tokens · utility bar · masthead · navigation · layout · notices
+             statistics · sections · tables · charts · tags · footer
+             accessibility · responsive
+   ========================================================================== */
+
+/* --- tokens ------------------------------------------------------------- */
 
 :root {
-  --navy: #0b2641;
-  --navy-2: #0e3153;
-  --navy-3: #123a60;
+  --navy-900: #0b2641;
+  --navy-800: #0e3153;
+  --navy-700: #123a60;
+  --navy-500: #1b5b91;
+  --navy-tint: #eaf0f6;
 
-  --blue: #1b5b91;
-  --blue-light: #edf5fb;
+  --saffron:  #e68124;
+  --saffron-tint: #fdf4e8;
 
-  --orange: #e68124;
-  --orange-dark: #cf6b0d;
+  --ink:       #1c2229;
+  --ink-soft:  #454d57;
+  --ink-faint: #6f7780;
 
-  --white: #ffffff;
-  --page: #f5f6f7;
-  --surface: #ffffff;
+  --page:   #f4f5f6;
+  --panel:  #ffffff;
+  --panel-alt: #f8f9fa;
 
-  --text: #222;
-  --text-soft: #555;
-  --text-muted: #777;
+  --border:      #d7dde2;
+  --border-soft: #e5e8eb;
 
-  --border: #d9dde2;
-  --border-light: #e8ebee;
-
-  --green: #227a4b;
-  --green-bg: #eef8f2;
-
-  --yellow: #9b7100;
-  --yellow-bg: #fff8e6;
-
-  --red: #a62929;
-  --red-bg: #fff0f0;
+  --ok:   #1a6e3c;   --ok-tint:   #f1f8f3;
+  --warn: #97620b;   --warn-tint: #fdf6e7;
+  --stop: #a42020;   --stop-tint: #fcf2f2;
 
   --radius: 3px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06);
 
-  --shadow: 0 1px 4px rgba(0, 0, 0, .08);
-
+  --font: "Noto Sans", "Nirmala UI", "Segoe UI", Arial, sans-serif;
   --font-scale: 1;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  font-size: calc(15px * var(--font-scale));
-}
+* { box-sizing: border-box; }
+html { font-size: calc(15px * var(--font-scale)); }
 
 body {
   margin: 0;
-  padding: 0;
-
   background: var(--page);
-  color: var(--text);
-
-  font-family:
-    "Noto Sans",
-    "Nirmala UI",
-    "Segoe UI",
-    Arial,
-    sans-serif;
-
+  color: var(--ink);
+  font-family: var(--font);
   line-height: 1.55;
-
-  -webkit-font-smoothing: antialiased;
 }
 
-/* =========================================================
-   TOP GOVERNMENT UTILITY BAR
-   ========================================================= */
+a { color: var(--navy-500); }
+
+/* --- top utility bar ---------------------------------------------------- */
 
 .topbar {
-  width: 100%;
-
-  min-height: 38px;
-
-  padding: 0 5%;
-
-  display: flex;
-  align-items: center;
-
-  background: var(--white);
-
-  border-bottom: 1px solid #e0e0e0;
-
-  color: #222;
-
-  font-size: .76rem;
-
-  gap: 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: .72rem;
+  padding: 4px 30px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  color: var(--ink-faint);
 }
-
-.topbar .gov {
-  color: #222;
-  font-weight: 600;
+.topbar .gov { font-weight: 600; color: var(--ink-soft); }
+.topbar .spacer { margin-left: auto; }
+.topbar a, .topbar button {
+  color: var(--ink-faint); text-decoration: none;
+  background: none; border: none; font: inherit; cursor: pointer; padding: 2px 3px;
 }
-
-.topbar .spacer {
-  margin-left: auto;
-}
-
-.topbar a,
-.topbar button {
-  appearance: none;
-
-  border: 0;
-  background: transparent;
-
-  color: #222;
-
-  text-decoration: none;
-
-  cursor: pointer;
-
-  font: inherit;
-
-  padding: 4px 6px;
-}
-
-.topbar a:hover,
-.topbar button:hover {
-  color: var(--blue);
-}
-
-.topbar .sizer {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
+.topbar a:hover, .topbar button:hover { color: var(--navy-700); text-decoration: underline; }
+.topbar .sizer { display: inline-flex; gap: 3px; align-items: center; }
 .topbar .sizer button {
-  min-width: 24px;
-
-  border: 1px solid #d3d3d3;
-
-  background: #fff;
-
-  border-radius: 2px;
-
-  line-height: 1;
-
-  padding: 4px 7px;
+  border: 1px solid var(--border); background: var(--panel);
+  border-radius: 2px; line-height: 1; padding: 3px 7px; font-size: .72rem;
 }
-
 .topbar .sizer button[aria-pressed="true"] {
-  color: #fff;
-
-  background: var(--navy);
-
-  border-color: var(--navy);
+  background: var(--navy-700); color: #fff; border-color: var(--navy-700);
 }
 
-/* =========================================================
-   SKIP LINK
-   ========================================================= */
-
-.skip-link {
-  position: absolute;
-
-  left: -9999px;
-  top: 8px;
-
-  padding: 8px 14px;
-
-  background: var(--navy);
-  color: #fff;
-
-  z-index: 9999;
-
-  text-decoration: none;
-}
-
-.skip-link:focus {
-  left: 10px;
-}
-
-/* =========================================================
-   MASTHEAD
-   ========================================================= */
+/* --- masthead ----------------------------------------------------------- */
 
 .masthead {
-  width: 100%;
-
-  background: var(--white);
-
-  padding:
-    18px
-    5%;
-
-  display: flex;
-  align-items: center;
-
-  gap: 18px;
-
-  min-height: 105px;
-
-  border-bottom: 1px solid #e1e3e5;
+  background: var(--panel);
+  padding: 13px 30px;
+  display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
 }
-
 .masthead .mark {
-  width: 56px;
-  height: 56px;
-
-  flex: none;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: var(--navy);
-
-  color: #fff;
-
-  border-radius: 50%;
-
-  font-size: .8rem;
-  font-weight: 700;
-
-  letter-spacing: .03em;
+  width: 44px; height: 44px; flex: none;
+  border: 2px solid var(--navy-700); border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--navy-700); font-weight: 700; font-size: .78rem; letter-spacing: .01em;
 }
-
-.masthead .hindi {
-  color: #4b4b4b;
-
-  font-size: .84rem;
-
-  line-height: 1.35;
-}
-
+.masthead .hindi { font-size: .84rem; color: var(--ink-soft); line-height: 1.35; }
 .masthead .english {
-  margin-top: 1px;
-
-  color: var(--navy);
-
-  font-size: 1.02rem;
-
-  font-weight: 700;
-
-  line-height: 1.35;
+  font-size: .95rem; font-weight: 700; color: var(--navy-800);
+  line-height: 1.35; letter-spacing: .005em;
 }
-
-.masthead .division {
-  margin-top: 3px;
-
-  color: #777;
-
-  font-size: .73rem;
-}
-
+.masthead .division { font-size: .72rem; color: var(--ink-faint); margin-top: 1px; }
 .masthead .system {
-  margin-left: auto;
-
-  text-align: right;
+  margin-left: auto; text-align: right;
+  padding-left: 18px; border-left: 2px solid var(--saffron);
 }
+.masthead .system .name { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.masthead .system .ps { font-size: .72rem; color: var(--ink-faint); }
 
-.masthead .system .name {
-  color: var(--navy);
-
-  font-size: 1rem;
-
-  font-weight: 700;
-}
-
-.masthead .system .ps {
-  margin-top: 3px;
-
-  color: #777;
-
-  font-size: .72rem;
-}
-
-/* =========================================================
-   PRIMARY NAVIGATION
-   ========================================================= */
+/* --- primary navigation ------------------------------------------------- */
 
 nav.primary {
-  width: 100%;
-
-  padding: 0 5%;
-
-  display: flex;
-  align-items: stretch;
-
-  background: var(--navy);
-
-  border-bottom: 4px solid var(--orange);
-
-  position: sticky;
-  top: 0;
-
-  z-index: 100;
-
-  box-shadow: none;
-
-  gap: 0;
-
-  flex-wrap: wrap;
+  background: var(--navy-800);
+  border-bottom: 3px solid var(--saffron);
+  padding: 0 30px;
+  display: flex; flex-wrap: wrap;
+  font-size: .8rem;
 }
-
 nav.primary a {
-  display: flex;
-  align-items: center;
-
-  min-height: 47px;
-
-  padding: 0 18px;
-
-  border-right: 1px solid rgba(255,255,255,.12);
-
-  color: #fff;
-
-  text-decoration: none;
-
-  font-size: .79rem;
-
-  transition:
-    background .15s ease,
-    color .15s ease;
+  color: #e8eef4; text-decoration: none;
+  padding: 10px 16px; display: block;
+  border-right: 1px solid rgba(255,255,255,.1);
 }
+nav.primary a:first-child { border-left: 1px solid rgba(255,255,255,.1); }
+nav.primary a:hover { background: var(--navy-900); color: #fff; }
+nav.primary a.active { background: var(--navy-500); color: #fff; font-weight: 600; }
 
-nav.primary a:first-child {
-  border-left: 1px solid rgba(255,255,255,.12);
-}
+/* --- layout ------------------------------------------------------------- */
 
-nav.primary a:hover {
-  background: rgba(255,255,255,.08);
-}
+main { padding: 20px 30px 48px; max-width: 1260px; }
 
-nav.primary a.active {
-  background: #fff;
-
-  color: var(--navy);
-
-  font-weight: 700;
-
-  box-shadow:
-    inset 0 -3px 0 var(--orange);
-}
-
-/* =========================================================
-   MAIN PAGE
-   ========================================================= */
-
-main {
-  width: 100%;
-  max-width: 1380px;
-
-  margin: 0 auto;
-
-  padding:
-    24px 5%
-    80px;
-}
-
-/* =========================================================
-   PAGE HEADING
-   ========================================================= */
-
-main > h1 {
-  margin:
-    4px 0 20px;
-
-  color: var(--navy);
-
-  font-size: 1.55rem;
-
-  font-weight: 700;
-
-  line-height: 1.25;
-
-  padding-bottom: 11px;
-
-  border-bottom: 1px solid var(--border);
-}
-
-main > h1::after {
-  content: "";
-
-  display: block;
-
-  width: 58px;
-  height: 3px;
-
-  margin-top: 9px;
-
-  background: var(--orange);
-}
-
-/* =========================================================
-   GOVERNMENT NOTICE
-   ========================================================= */
+/* --- notices ------------------------------------------------------------ */
 
 .banner {
-  margin-bottom: 22px;
-
-  padding:
-    12px
-    17px;
-
-  background: var(--yellow-bg);
-
-  border:
-    1px solid #eadcae;
-
-  border-left:
-    5px solid var(--orange);
-
-  border-radius: 2px;
-
-  color: #4a4638;
-
-  font-size: .82rem;
+  background: var(--saffron-tint);
+  border: 1px solid #f0dcc0;
+  border-left: 3px solid var(--saffron);
+  border-radius: var(--radius);
+  padding: 11px 15px; margin-bottom: 18px;
+  font-size: .82rem; color: var(--ink-soft);
 }
+.banner strong { color: var(--warn); }
 
-.banner strong {
-  color: #816500;
-}
-
-/* =========================================================
-   STATISTICS
-   ========================================================= */
+/* --- statistics strip --------------------------------------------------- */
+/* One bordered strip divided by vertical rules, in the manner of a published
+   statistics summary - not a row of floating tiles. */
 
 .grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(auto-fit, minmax(210px, 1fr));
-
-  gap: 0;
-
-  background: var(--white);
-
-  border:
-    1px solid var(--border);
-
-  margin-bottom: 22px;
-
-  box-shadow: var(--shadow);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 0; margin-bottom: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border); border-radius: var(--radius);
 }
-
-.stat {
-  min-height: 112px;
-
-  padding:
-    17px
-    19px;
-
-  background: #fff;
-
-  border-right: 1px solid var(--border);
-
-  border-radius: 0;
-
-  box-shadow: none;
-}
-
-.stat:last-child {
-  border-right: 0;
-}
-
+.stat { padding: 13px 18px; border-left: 1px solid var(--border-soft); }
+.stat:first-child { border-left: none; }
 .stat .label {
-  color: #707070;
-
-  font-size: .66rem;
-
-  text-transform: uppercase;
-
-  letter-spacing: .06em;
-
-  font-weight: 700;
+  font-size: .67rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-faint); font-weight: 600;
 }
-
 .stat .value {
-  margin:
-    7px
-    0
-    3px;
-
-  color: var(--navy);
-
-  font-size: 1.55rem;
-
-  font-weight: 700;
-
-  line-height: 1.2;
-
-  font-variant-numeric: tabular-nums;
+  font-size: 1.45rem; font-weight: 700; margin: 5px 0 2px;
+  font-variant-numeric: tabular-nums; color: var(--navy-800); line-height: 1.2;
 }
+.stat .value.muted { font-size: .92rem; font-weight: 600; color: var(--ink-soft); }
+.stat .note { font-size: .73rem; color: var(--ink-faint); line-height: 1.45; }
 
-.stat .value.muted {
-  color: #555;
-
-  font-size: .95rem;
-}
-
-.stat .note {
-  color: #888;
-
-  font-size: .72rem;
-
-  line-height: 1.45;
-}
-
-/* =========================================================
-   CONTENT SECTION
-   ========================================================= */
+/* --- sections ----------------------------------------------------------- */
 
 section {
-  margin-bottom: 22px;
-
-  background: var(--white);
-
-  border:
-    1px solid var(--border);
-
-  border-radius: 2px;
-
-  box-shadow: var(--shadow);
-
-  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 16px;
 }
-
 section > h2 {
-  min-height: 45px;
-
-  margin: 0;
-
-  padding:
-    11px
-    17px;
-
-  display: flex;
-  align-items: center;
-
-  gap: 10px;
-
-  color: var(--navy);
-
-  background: #ffffff;
-
-  border-bottom:
-    1px solid var(--border);
-
-  font-size: .9rem;
-
-  font-weight: 700;
+  margin: 0; padding: 10px 16px;
+  font-size: .84rem; font-weight: 700; color: var(--navy-800);
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
 }
-
 section > h2::before {
-  content: "";
-
-  width: 4px;
-  height: 19px;
-
-  background: var(--orange);
-
-  flex: none;
+  content: ""; width: 3px; height: 14px; background: var(--saffron); flex: none;
 }
+section > .body { padding: 14px 16px; }
 
-section > .body {
-  padding:
-    18px
-    20px;
-}
+/* --- tables ------------------------------------------------------------- */
 
-/* =========================================================
-   TABLES
-   ========================================================= */
-
-table {
-  width: 100%;
-
-  border-collapse: collapse;
-
-  font-size: .81rem;
-
-  background: #fff;
-}
-
-th,
-td {
-  padding:
-    10px
-    14px;
-
-  text-align: left;
-
-  border-bottom:
-    1px solid var(--border-light);
-
-  vertical-align: middle;
-}
-
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+th, td { text-align: left; padding: 7px 16px; border-bottom: 1px solid var(--border-soft); }
 th {
-  color: #455463;
-
-  background: #eef3f7;
-
-  border-top:
-    1px solid var(--border);
-
-  border-bottom:
-    1px solid var(--border);
-
-  font-size: .67rem;
-
-  font-weight: 700;
-
-  text-transform: uppercase;
-
-  letter-spacing: .05em;
-
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--navy-800); font-weight: 700;
+  background: var(--navy-tint);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
-
-tbody tr:nth-child(even) td {
-  background: #fbfcfd;
-}
-
-tbody tr:hover td {
-  background: var(--blue-light);
-}
-
-tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-td.num {
-  text-align: right;
-
-  font-variant-numeric: tabular-nums;
-}
-
-tr.highlight td {
-  background: #edf4fb;
-
-  color: var(--navy);
-
-  font-weight: 700;
-
-  border-top:
-    1px solid #cad9e7;
-
-  border-bottom:
-    1px solid #cad9e7;
-}
-
-/* =========================================================
-   METADATA
-   ========================================================= */
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f6f9fc; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.highlight td { background: var(--navy-tint); font-weight: 600; }
 
 .meta {
-  padding:
-    10px
-    17px;
-
-  background: #f7f8f9;
-
-  border-top:
-    1px solid var(--border-light);
-
-  color: #777;
-
-  font-size: .72rem;
-
-  line-height: 1.55;
+  font-size: .73rem; color: var(--ink-faint); line-height: 1.5;
+  padding: 9px 16px; border-top: 1px solid var(--border-soft); background: var(--panel-alt);
 }
-
-/* =========================================================
-   CODE / IDENTIFIERS
-   ========================================================= */
-
 code {
-  font-family:
-    Consolas,
-    "Courier New",
-    monospace;
-
-  font-size: .76rem;
-
-  background: #eef3f7;
-
-  color: var(--navy);
-
-  border:
-    1px solid #d9e1e8;
-
-  padding:
-    1px 5px;
-
-  border-radius: 2px;
+  font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: .77rem;
+  background: var(--navy-tint); color: var(--navy-800);
+  padding: 1px 5px; border-radius: 2px;
 }
+.empty { color: var(--ink-faint); font-style: italic; padding: 18px 16px; font-size: .82rem; }
 
-.empty {
-  padding: 20px;
-
-  color: #888;
-
-  font-size: .82rem;
-
-  font-style: italic;
-}
-
-/* =========================================================
-   STATUS TAGS
-   ========================================================= */
+/* --- status tags -------------------------------------------------------- */
 
 .tag {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block; font-size: .67rem; font-weight: 600;
+  padding: 1px 7px; border-radius: 2px; border: 1px solid; letter-spacing: .02em;
+}
+.tag.sim  { color: var(--warn); border-color: #e6d3a8; background: var(--warn-tint); }
+.tag.live { color: var(--ok);   border-color: #b6d8c2; background: var(--ok-tint); }
+.tag.off  { color: var(--navy-700); border-color: #bfd2e4; background: var(--navy-tint); }
+.tag.stop { color: var(--stop); border-color: #e0b6b6; background: var(--stop-tint); }
 
-  min-height: 22px;
+/* --- controls ----------------------------------------------------------- */
 
-  padding:
-    2px
-    8px;
-
-  border:
-    1px solid;
-
-  border-radius: 2px;
-
-  font-size: .64rem;
-
-  font-weight: 700;
-
-  letter-spacing: .025em;
-
-  text-transform: uppercase;
+select, input[type="text"] {
+  font: inherit; font-size: .82rem; padding: 5px 9px;
+  border: 1px solid var(--border); border-radius: 2px;
+  background: var(--panel); color: var(--ink);
+}
+select:focus, input:focus, a:focus, button:focus {
+  outline: 2px solid var(--saffron); outline-offset: 1px;
 }
 
-.tag.sim {
-  color: var(--yellow);
+/* --- charts ------------------------------------------------------------- */
 
-  border-color: #e3d19a;
+.chart { padding: 14px 16px 4px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .axis { stroke: var(--border); stroke-width: 1; }
+.chart .grid-line { stroke: var(--border-soft); stroke-width: 1; }
+.chart .series { fill: none; stroke: var(--navy-500); stroke-width: 2; }
+.chart .point { fill: var(--navy-500); }
+.chart .bar { fill: var(--navy-500); }
+.chart .bar.cpi { fill: var(--saffron); }
+.chart text { font-family: var(--font); font-size: 11px; fill: var(--ink-faint); }
+.chart text.value { fill: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 10px; }
 
-  background: var(--yellow-bg);
+/* --- footer ------------------------------------------------------------- */
+
+.gov-footer { margin-top: 34px; }
+
+.gov-footer .columns {
+  background: var(--navy-800); color: #c3d0de;
+  padding: 26px 30px 20px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 24px 32px;
+  max-width: none;
 }
-
-.tag.live {
-  color: var(--green);
-
-  border-color: #b9dec8;
-
-  background: var(--green-bg);
+.gov-footer .columns h3 {
+  margin: 0 0 9px; font-size: .74rem; font-weight: 700; color: #fff;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.15);
 }
+.gov-footer .columns ul { list-style: none; margin: 0; padding: 0; font-size: .77rem; line-height: 1.9; }
+.gov-footer .columns a { color: #c3d0de; text-decoration: none; }
+.gov-footer .columns a:hover { color: #fff; text-decoration: underline; }
+.gov-footer .columns p { margin: 0 0 7px; font-size: .77rem; line-height: 1.6; }
 
-.tag.off {
-  color: var(--blue);
-
-  border-color: #bed2e4;
-
-  background: var(--blue-light);
-}
-
-.tag.stop {
-  color: var(--red);
-
-  border-color: #e8c0c0;
-
-  background: var(--red-bg);
-}
-
-/* =========================================================
-   FORM CONTROLS
-   ========================================================= */
-
-select,
-input[type="text"] {
-  height: 34px;
-
-  padding:
-    5px
-    9px;
-
-  background: #fff;
-
-  border:
-    1px solid #bcc5ce;
-
-  border-radius: 2px;
-
-  color: var(--text);
-
-  font:
-    inherit;
-
-  font-size: .81rem;
-}
-
-select:hover,
-input[type="text"]:hover {
-  border-color: #8c99a5;
-}
-
-select:focus,
-input[type="text"]:focus {
-  outline:
-    2px solid rgba(27,91,145,.18);
-
-  outline-offset: 1px;
-
-  border-color: var(--blue);
-}
-
-/* =========================================================
-   CHARTS
-   ========================================================= */
-
-.chart {
-  padding:
-    18px
-    20px
-    8px;
-
-  background: #fff;
-}
-
-.chart svg {
-  display: block;
-
-  width: 100%;
-
-  height: auto;
-}
-
-.chart .axis {
-  stroke: #98a5af;
-
-  stroke-width: 1;
-}
-
-.chart .grid-line {
-  stroke: #e4e9ed;
-
-  stroke-width: 1;
-}
-
-.chart .series {
-  fill: none;
-
-  stroke: var(--navy);
-
-  stroke-width: 2;
-}
-
-.chart .point {
-  fill: var(--navy);
-}
-
-.chart .bar {
-  fill: var(--blue);
-}
-
-.chart .bar.cpi {
-  fill: var(--orange);
-}
-
-.chart text {
-  font-family:
-    "Noto Sans",
-    "Segoe UI",
-    Arial,
-    sans-serif;
-
-  font-size: 11px;
-
-  fill: #68747f;
-}
-
-.chart text.value {
-  fill: #424d57;
-
-  font-size: 10px;
-
-  font-variant-numeric: tabular-nums;
-}
-
-/* =========================================================
-   GOVERNMENT-STYLE FOOTER
-   ========================================================= */
-
-.gov-footer {
-  width: 100%;
-
-  margin-top: 35px;
-
-  background: var(--navy);
-
-  border-top:
-    5px solid var(--orange);
-}
-
-/* Main footer */
 .gov-footer .links {
-  min-height: 330px;
-
-  padding:
-    50px
-    5%
-    42px;
-
-  background: var(--navy);
-
-  display: grid;
-
-  grid-template-columns:
-    1fr
-    1fr
-    1.6fr
-    1.7fr;
-
-  gap: 70px;
-
-  border: 0;
-
-  font-size: .84rem;
+  background: var(--navy-900);
+  border-top: 1px solid rgba(255,255,255,.1);
+  padding: 11px 30px; font-size: .74rem;
+  display: flex; gap: 22px; flex-wrap: wrap;
 }
+.gov-footer .links a { color: #b6c4d4; text-decoration: none; }
+.gov-footer .links a:hover { color: #fff; text-decoration: underline; }
 
-/* Columns naturally inherit the existing links markup */
-.gov-footer .links a {
-  display: block;
-
-  width: fit-content;
-
-  margin-bottom: 18px;
-
-  color: #ffffff;
-
-  text-decoration: none;
-
-  line-height: 1.5;
-}
-
-.gov-footer .links a:hover {
-  color: #ffffff;
-
-  text-decoration: underline;
-}
-
-/*
-   Existing flex-wrap footer markup is converted to
-   a spacious government-portal layout.
-*/
-
-.gov-footer .links > * {
-  max-width: 100%;
-}
-
-/* Attribution block */
 .gov-footer .attribution {
-  padding:
-    24px
-    5%;
-
-  background: #0d2d4c;
-
-  color: #d8e1ea;
-
-  border-top:
-    1px solid rgba(255,255,255,.18);
-
-  font-size: .76rem;
-
-  line-height: 1.65;
+  background: var(--navy-900); color: #9fb0c2;
+  padding: 14px 30px 18px; font-size: .74rem; line-height: 1.65;
+  border-top: 1px solid rgba(255,255,255,.08);
 }
+.gov-footer .attribution strong { color: #fff; }
+.gov-footer .attribution code { background: rgba(255,255,255,.09); color: #d3dfec; }
+.gov-footer .attribution .row { margin-bottom: 4px; max-width: 1000px; }
 
-.gov-footer .attribution strong {
-  color: #fff;
-}
-
-.gov-footer .attribution code {
-  background: rgba(255,255,255,.09);
-
-  color: #e7eef5;
-
-  border-color:
-    rgba(255,255,255,.13);
-}
-
-.gov-footer .attribution .row {
-  margin-bottom: 5px;
-
-  max-width: 1100px;
-}
-
-/* Bottom legal strip */
 .gov-footer .disclaimer {
-  min-height: 47px;
-
-  padding:
-    13px
-    5%;
-
-  background: #081f35;
-
-  color: #c4d1dd;
-
-  border-top:
-    1px solid rgba(255,255,255,.08);
-
-  font-size: .72rem;
-
-  line-height: 1.55;
+  background: #081b30; color: #8297ae;
+  padding: 10px 30px; font-size: .71rem;
 }
 
-/* =========================================================
-   FOOTER / SOCIAL ICONS
-   ========================================================= */
+/* --- accessibility ------------------------------------------------------ */
 
-.gov-footer svg,
-.gov-footer img {
-  max-width: 100%;
+.skip-link {
+  position: absolute; left: -9999px;
+  background: var(--navy-800); color: #fff; padding: 8px 14px; z-index: 100;
 }
-
-/*
-   When social icon elements already exist in the HTML,
-   keep them simple and white, similar to the screenshot.
-*/
-
-.gov-footer a[class*="social"],
-.gov-footer .social a,
-.gov-footer .social-icon {
-  color: #fff;
-
-  opacity: .96;
-}
-
-.gov-footer a[class*="social"]:hover,
-.gov-footer .social a:hover,
-.gov-footer .social-icon:hover {
-  opacity: 1;
-}
-
-/* =========================================================
-   FLOATING GOVERNMENT ACCESSIBILITY CONTROLS
-   ========================================================= */
-
-.accessibility-float,
-.accessibility-button,
-.help-float,
-.back-to-top {
-  position: fixed;
-
-  right: 30px;
-
-  width: 66px;
-  height: 66px;
-
-  border-radius: 50%;
-
-  z-index: 200;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border: 0;
-
-  box-shadow:
-    0 4px 13px rgba(0,0,0,.18);
-}
-
-.accessibility-float,
-.help-float {
-  bottom: 92px;
-
-  background: var(--navy-2);
-
-  border:
-    4px solid #21507b;
-
-  color: #fff;
-}
-
-.back-to-top {
-  bottom: 18px;
-
-  background: #132033;
-
-  color: #fff;
-
-  border:
-    1px solid rgba(255,255,255,.05);
-}
-
-.accessibility-float:hover,
-.help-float:hover,
-.back-to-top:hover {
-  transform: translateY(-1px);
-
-  box-shadow:
-    0 5px 15px rgba(0,0,0,.23);
-}
-
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-
-@media (max-width: 1000px) {
-
-  .topbar,
-  .masthead,
-  nav.primary,
-  main,
-  .gov-footer .links,
-  .gov-footer .attribution,
-  .gov-footer .disclaimer {
-    padding-left: 3%;
-    padding-right: 3%;
-  }
-
-  .gov-footer .links {
-    grid-template-columns:
-      1fr
-      1fr;
-
-    gap: 35px;
-  }
-
-  .masthead .system {
-    max-width: 35%;
-  }
-}
-
-@media (max-width: 720px) {
-
-  .topbar {
-    flex-wrap: wrap;
-
-    padding-top: 7px;
-    padding-bottom: 7px;
-
-    gap: 8px 12px;
-  }
-
-  .topbar .spacer {
-    display: none;
-  }
-
-  .masthead {
-    min-height: auto;
-
-    padding-top: 16px;
-    padding-bottom: 16px;
-
-    flex-wrap: wrap;
-
-    align-items: flex-start;
-  }
-
-  .masthead .system {
-    width: 100%;
-
-    max-width: none;
-
-    margin-left: 74px;
-
-    text-align: left;
-  }
-
-  nav.primary {
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  nav.primary a {
-    padding:
-      0
-      12px;
-
-    font-size: .72rem;
-  }
-
-  main {
-    padding-top: 18px;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stat {
-    border-right: 0;
-
-    border-bottom:
-      1px solid var(--border);
-  }
-
-  .stat:last-child {
-    border-bottom: 0;
-  }
-
-  .gov-footer .links {
-    grid-template-columns: 1fr;
-
-    min-height: auto;
-
-    padding-top: 35px;
-  }
-
-  .accessibility-float,
-  .accessibility-button,
-  .help-float,
-  .back-to-top {
-    right: 16px;
-
-    width: 56px;
-    height: 56px;
-  }
-
-  .accessibility-float,
-  .help-float {
-    bottom: 82px;
-  }
-
-  .back-to-top {
-    bottom: 15px;
-  }
-
-  table {
-    min-width: 700px;
-  }
-
-  section {
-    overflow-x: auto;
-  }
-
-  section > h2 {
-    position: relative;
-  }
-}
-
-/* =========================================================
-   PRINT
-   ========================================================= */
-
-@media print {
-
-  body {
-    background: #fff;
-  }
-
-  .topbar,
-  nav.primary {
-    position: static;
-  }
-
-  nav.primary {
-    background: #fff;
-
-    border-bottom:
-      2px solid #000;
-  }
-
-  nav.primary a {
-    color: #000;
-  }
-
-  section,
-  .grid {
-    box-shadow: none;
-  }
-
-  .gov-footer {
-    border-top:
-      3px solid #000;
-  }
-
-  .gov-footer .links,
-  .gov-footer .attribution,
-  .gov-footer .disclaimer {
-    background: #fff;
-
-    color: #000;
-
-    border-top:
-      1px solid #999;
-  }
+.skip-link:focus { left: 8px; top: 8px; }
+
+/* --- responsive --------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .topbar, .masthead, nav.primary, main,
+  .gov-footer .columns, .gov-footer .links,
+  .gov-footer .attribution, .gov-footer .disclaimer { padding-left: 16px; padding-right: 16px; }
+  .masthead .system { margin-left: 0; text-align: left; border-left: none; padding-left: 0;
+                      border-top: 2px solid var(--saffron); padding-top: 8px; width: 100%; }
+  nav.primary { overflow-x: auto; flex-wrap: nowrap; }
+  nav.primary a { white-space: nowrap; }
+  .grid { grid-template-columns: 1fr; }
+  .stat { border-left: none; border-top: 1px solid var(--border-soft); }
+  .stat:first-child { border-top: none; }
+  table { font-size: .78rem; }
+  th, td { padding: 6px 11px; }
 }

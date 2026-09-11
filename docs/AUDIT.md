@@ -1,7 +1,15 @@
 # Final Audit — APIx against PS 26056
 
 **Problem Statement 26056 · MoSPI / Data Informatics & Innovation Division**
-**Audited 10 September 2026 · 786 tests passing · ruff and mypy --strict clean**
+**Audited 10 September 2026 · revised 11 September 2026**
+**815 tests passing · ruff and mypy --strict clean**
+
+> **Revision note.** The first version of this audit overstated two rows. A1
+> cited "APScheduler-ready" as evidence of scheduled collection when no
+> scheduler existed, and A13 cited "CI" when nothing ran the tests
+> automatically. Both are now implemented, and the rows below say what is in the
+> repository rather than what was intended. Finding this was the point of asking
+> for independent verification; recording it is the point of an audit.
 
 This is the traceability matrix the problem statement asks for, completed
 honestly. Where a requirement is met, the evidence is a file and a test. Where it
@@ -13,7 +21,7 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 
 | # | Requirement | Status | Evidence | Demo |
 |---|---|---|---|---|
-| A1 | Multi-source scraping engine, Python, scheduled | **Met** | `packages/collector/` — adapter contract, runner, retry policy, APScheduler-ready | `/operations` |
+| A1 | Multi-source scraping engine, Python, scheduled | **Met** | `packages/collector/` — adapter contract, runner, retry policy, and `scheduler.py`: a daily APScheduler job running in IST, one instance at a time, missed runs coalesced | `/operations` |
 | A2 | Handle JS, anti-bot, sessions **while complying with robots.txt and ToS** | **Met, with a stated reading** | `packages/compliance/` — six-check gate, capability token (ADR-018), fail-closed robots | `/operations` shows refusals |
 | A3 | Cleaned, de-duplicated fare DB with full metadata | **Met** | `raw_quote` → `normalised_quote`, 22 tables, lineage across 7 tables | `/api/v1/provenance/{id}` |
 | A4 | City-pair basket from DGCA passenger traffic | **Partially met** | Weight engine complete; weights are **evidence rung 4 (equal)** — see §C | `/routes` shows the rung |
@@ -24,8 +32,8 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 | A9 | Index from routes and weights | **Met** | Jevons short + Young/Modified Laspeyres | `/methodology` |
 | A10 | Dashboard: trends, heatmaps, lead-time curves | **Met** | Seven pages, server-rendered | All pages |
 | A11 | API for NSO/RBI consumption | **Met** | Versioned REST, OpenAPI, `meta` on every response | `/api/docs` |
-| A12 | Documentation | **Met** | `docs/`, plus a methodology page citing every source | `/methodology` |
-| A13 | Automated testing | **Met** | 786 tests, golden index test, compliance tests | CI |
+| A12 | Documentation | **Met** | `docs/` — audit, methodology, deployment, demo script, ADRs, evidence files — plus a methodology page citing every source | `/methodology` |
+| A13 | Automated testing | **Met** | 815 tests; `.github/workflows/ci.yml` runs lint, strict typing, the full suite, and five named gates (index drift, bypass path, float on a money path, TLS verification, immutability) | GitHub Actions |
 | A14 | **30 days back-tested against public DGCA monthly fare data** | **Not possible as specified** | See §B | `/api/v1/backtest` |
 
 ---
@@ -86,6 +94,24 @@ real.
 
 ---
 
+## C2. Where this audit was previously wrong
+
+Recorded rather than quietly corrected, because an audit that edits its own
+history is not an audit.
+
+| Row | The claim | What was actually in the repository |
+|---|---|---|
+| A1 | "APScheduler-ready" | No scheduler existed. "Ready" was carrying the whole claim. Now implemented and tested. |
+| A13 | Evidence: "CI" | 786 tests existed; nothing ran them automatically. Now a GitHub Actions workflow with five named gates. |
+
+Both were found by re-reading the repository against this document rather than
+by a reviewer. The lesson generalises: **documentation drifts ahead of code by
+default**, because writing an intention is faster than implementing it, and
+nothing fails when the two diverge. The named CI gates exist partly so that
+divergence becomes visible.
+
+---
+
 ## D. What the enforcement actually caught
 
 Not a claim about discipline — a record of constraints rejecting real code
@@ -98,6 +124,8 @@ during this build.
 5. The no-float guard fired **five times** — index engine, demo fare generator, retry backoff, backtest metrics, tariff parser. Each time the fix was Decimal, never an exemption.
 6. A Windows path-separator bug in a compliance test that passed on Linux.
 7. A missing `APIX_CONTACT_URL` that made the gate refuse 2,520 requests while the script printed zeros — surfaced, then fixed to report the refusal.
+8. A rate limiter that counted static assets and locked a reader out of the site after a few page refreshes.
+9. **Five tests that failed on their own explanatory comments** — searching for "CDN", "State Emblem", "robotparser", a bypass flag, an invented footer link. Each time the code was right and the assertion was reading prose. A `_code_only()` helper now strips comments before scanning, because a test that punishes writing down your reasoning teaches you to stop writing it down.
 
 ---
 

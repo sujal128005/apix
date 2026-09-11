@@ -19,13 +19,21 @@ from collector.adapter import (
 from collector.mock_adapter import MockAdapter, MockBehaviour
 from collector.retry import RetryPolicy, TransportOutcome, is_retryable
 from collector.runner import CollectionRunner, RunResult, SpecOutcome
+from collector.scheduler import (
+    CollectionSchedule,
+    DailyCollectionJob,
+    build_daily_plan,
+    start_scheduler,
+)
 from collector.tls import TlsLadder, TlsMode, build_ssl_context
 
 __all__ = [
     "AdapterRequest",
     "AdapterResponse",
     "CollectionRunner",
+    "CollectionSchedule",
     "CollectionSpec",
+    "DailyCollectionJob",
     "HealthReport",
     "MockAdapter",
     "MockBehaviour",
@@ -38,6 +46,8 @@ __all__ = [
     "TlsLadder",
     "TlsMode",
     "TransportOutcome",
+    "build_daily_plan",
     "build_ssl_context",
     "is_retryable",
+    "start_scheduler",
 ]

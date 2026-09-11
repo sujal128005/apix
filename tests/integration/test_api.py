@@ -15,6 +15,23 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps"))
 
 
+def _code_only(source: str) -> str:
+    """Strip JS comments so an assertion reads the code, not its commentary.
+
+    Written after five separate tests in this file failed on comments that
+    described the very thing the test was checking for the absence of - a CDN,
+    the State Emblem, stdlib robotparser, a bypass flag, an invented footer
+    link. Each time the code was correct and the test was reading prose.
+
+    A test that punishes writing down your reasoning teaches you to stop writing
+    it down, which is the opposite of what this project wants.
+    """
+    import re
+
+    source = re.sub(r"/\*.*?\*/", " ", source, flags=re.S)
+    return re.sub(r"^\s*//.*$", " ", source, flags=re.M)
+
+
 @pytest.fixture(scope="module")
 def client() -> TestClient:
     from api.main import app
@@ -486,10 +503,20 @@ def test_the_footer_says_this_is_not_an_official_publication(
 
     Everything else about the design is meant to read as a government
     statistical site; without this line that resemblance would be a claim.
+
+    Checked on the text with markup stripped and case folded. The first version
+    matched an exact string and broke when the word "not" was emphasised - the
+    disclaimer was intact, the assertion was merely brittle.
     """
+    import re
+
     js = client.get("/static/apix.js").text
-    assert "Not an official publication" in js
-    assert "Prototype" in js
+    plain = re.sub(r"<[^>]+>", "", js).lower()
+
+    assert "not an official publication" in plain
+    assert "student project" in plain
+    assert "prototype" in plain
+    assert "not a source of official statistics" in plain
 
 
 def test_the_footer_timestamp_comes_from_the_api(client: TestClient) -> None:
@@ -497,3 +524,27 @@ def test_the_footer_timestamp_comes_from_the_api(client: TestClient) -> None:
     html = client.get("/").text
     assert "govFooter(" in html
     assert "meta.as_of" in html
+
+
+def test_the_footer_invents_no_government_affiliation(client: TestClient) -> None:
+    """The footer is styled like a ministry portal, so its content must not
+    borrow one's authority.
+
+    No social accounts, no RTI or feedback links, no visitor counter, no
+    contact addresses - APIx has none of those, and adding them to fill out the
+    layout would be precisely the impersonation the design has to avoid.
+    External references are present but labelled as external.
+
+    Comments are stripped before scanning. This is the fifth test in this suite
+    to have first failed on a comment describing what the code deliberately does
+    *not* do - so the helper below exists to stop that happening a sixth time.
+    Assertions should read the code, never its explanation of itself.
+    """
+    js = _code_only(client.get("/static/apix.js").text).lower()
+
+    for invented in ("rti", "feedback form", "visitor counter", "@gov.in", "@nic.in"):
+        assert invented not in js, f"the footer invents {invented!r}"
+
+    # External links are permitted, but must be labelled and opened safely.
+    assert "external reference" in js
+    assert 'rel="noopener noreferrer"' in js

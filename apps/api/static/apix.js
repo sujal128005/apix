@@ -31,7 +31,10 @@ function table(cols, rows, rowClass) {
     const cells = cols.map(c => `<td class="${c.num ? "num" : ""}">${c.render(r)}</td>`).join("");
     return `<tr class="${cls}">${cells}</tr>`;
   }).join("");
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  // Wrapped so a wide statistical table scrolls on a narrow screen rather than
+  // pushing the page sideways.
+  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead>` +
+         `<tbody>${body}</tbody></table></div>`;
 }
 
 /* A line chart with a real y-axis.
@@ -158,30 +161,77 @@ function masthead(active) {
 }
 
 function govFooter(lastUpdated) {
-  const policies = [
-    ["/methodology", "Methodology"],
-    ["/api/v1/methodology", "Machine-readable Methodology"],
-    ["/api/docs", "API Documentation"],
-    ["/operations", "System Status"],
-    ["/api/v1/health", "Health Check"],
-  ];
+  /* Multi-column government-portal footer.
+
+     The columns use APIx's own pages and the external references it genuinely
+     relies on. No social accounts, no RTI or feedback links, no visitor
+     counter - this project has none of those, and inventing them to fill the
+     layout would be exactly the impersonation the design must avoid. */
   return `
   <div class="gov-footer">
-    <div class="links">${policies.map(([h, l]) => `<a href="${h}">${l}</a>`).join("")}</div>
-    <div class="attribution">
-      <div class="row"><strong>Prototype.</strong> Built for Smart India Hackathon 2026 against
-        Problem Statement 26056. Not an official publication of the Ministry of Statistics and
-        Programme Implementation, and not a source of official statistics.</div>
-      <div class="row">CPI data is retrieved from MoSPI's open API at
-        <code>api.mospi.gov.in</code> and remains Government of India official statistics. APIx
-        stores it with its source URL and retrieval timestamp.</div>
-      <div class="row">Every figure on this site is traceable to an individual fare quote, its
-        source and its collection timestamp.</div>
+    <div class="columns">
+      <div>
+        <h3>Statistics</h3>
+        <ul>
+          <li><a href="/">Airfare Price Index</a></li>
+          <li><a href="/routes">Route Explorer</a></li>
+          <li><a href="/lead-time">Lead-time Profile</a></li>
+          <li><a href="/api/v1/benchmark">CPI Benchmark Series</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Methodology</h3>
+        <ul>
+          <li><a href="/methodology">Index Methodology</a></li>
+          <li><a href="/api/v1/backtest">Validation &amp; Limitations</a></li>
+          <li><a href="/quality">Data Quality</a></li>
+          <li><a href="/api/v1/methodology">Machine-readable Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Developers</h3>
+        <ul>
+          <li><a href="/api/docs">API Documentation</a></li>
+          <li><a href="/api/v1/openapi.json">OpenAPI Specification</a></li>
+          <li><a href="/operations">System Status</a></li>
+          <li><a href="/api/v1/health">Health Check</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Data Sources</h3>
+        <p>Consumer Price Index data is retrieved from the MoSPI open API.</p>
+        <ul>
+          <li><a href="https://www.mospi.gov.in/" rel="noopener noreferrer"
+                 target="_blank">MoSPI (external reference)</a></li>
+          <li><a href="https://esankhyiki.mospi.gov.in/" rel="noopener noreferrer"
+                 target="_blank">eSankhyiki (external reference)</a></li>
+        </ul>
+      </div>
     </div>
+
+    <div class="links">
+      <a href="/methodology">Methodology</a>
+      <a href="/quality">Data Quality</a>
+      <a href="/api/v1/backtest">Limitations</a>
+      <a href="/operations">System Status</a>
+      <a href="/api/docs">API</a>
+    </div>
+
+    <div class="attribution">
+      <div class="row"><strong>Prototype.</strong> Built for Smart India Hackathon 2026
+        against Problem Statement 26056. This is a student project. It is
+        <strong>not</strong> an official publication of the Ministry of Statistics and
+        Programme Implementation, and not a source of official statistics.</div>
+      <div class="row">Consumer Price Index data is retrieved from MoSPI's open API at
+        <code>api.mospi.gov.in</code> and remains Government of India official statistics.
+        APIx stores it with its source URL and retrieval timestamp.</div>
+      <div class="row">Every figure on this site is traceable to an individual fare quote,
+        its source and its collection timestamp.</div>
+    </div>
+
     <div class="disclaimer">
       Last updated: ${esc(lastUpdated || "—")} &nbsp;|&nbsp;
-      Index methodology follows MoSPI CPI 2024 (Expert Group Report, January 2026) &nbsp;|&nbsp;
-      Best viewed in a current version of Chrome, Firefox or Edge
+      Index methodology follows MoSPI CPI 2024 (Expert Group Report, January 2026)
     </div>
   </div>`;
 }
