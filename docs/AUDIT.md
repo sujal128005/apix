@@ -74,13 +74,13 @@ real.
 | Limitation | Why | Where it is stated |
 |---|---|---|
 | Route weights are equal, **evidence rung 4** | Open item O-5: no public DGCA per-city-pair passenger-volume table found | `/routes`, `/methodology` |
-| No live data source; all observations `SIMULATED_DEMO` | Open item O-3: Amadeus carrier coverage unverified | Every page, `/operations` |
+| No live transacted-price source; all observations `SIMULATED_DEMO` | Amadeus Self-Service decommissioned 17 Jul 2026 (O-3 closed). Tier 2 tariff sheets are now the path, pending O-4 | Every page, `/operations` |
 | **No headline index is ever published** | A database trigger refuses one for any date carrying simulated data | Dashboard banner |
 | Index **levels** not comparable with CPI | APIx uses its own base period, not 2024 = 100 | `/methodology`, `/api/v1/backtest` |
 | Airfare **item weight** unknown | Needs Annexure 5.3 plus a second source; the Transport division weight of 8.796 is not a stand-in | `data/reference/cpi_airfare_item.json` |
 | Coverage: economy, one-way, direct, one adult, 20 routes | Constant-quality scope (PA-2) | `/methodology` |
 | Six OTAs never collected from | robots.txt; adapters built and refused | `/operations` |
-| Amadeus adapter **not live-verified** | O-3 open; parser validated against fixtures only | `diagnostics()` reports `coverage_verified: false` |
+| Amadeus adapter written, tested, **permanently disabled** | The self-service tier no longer exists; Enterprise access requires a commercial account | `docs/evidence/O3-amadeus-decommissioned.md` |
 | Tariff-sheet URLs unresolved | Open item O-4 | `TARIFF_PATHS` ships empty |
 | Rate limiter is **per-process** | Behind several workers the effective limit multiplies | Docstring in `apps/api/main.py` |
 

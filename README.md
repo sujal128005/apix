@@ -203,14 +203,14 @@ Stated here rather than left to be discovered.
 
 | Limitation | Status |
 |---|---|
-| No live source; all observations are `SIMULATED_DEMO` | Open item O-3 |
+| No live transacted-price source; all observations are `SIMULATED_DEMO` | **Amadeus Self-Service was decommissioned 17 Jul 2026**; Tier 2 is now the path |
 | Route weights are equal, **evidence rung 4** | Open item O-5 |
 | No headline index is ever published | By design, while data is simulated |
 | Index **levels** not comparable with CPI — only movements | Permanent, by construction |
 | Airfare *item* weight unknown; Transport's 8.796 is not a stand-in | Needs Annexure 5.3 |
 | Coverage: economy, one-way, direct, one adult, 20 routes | Constant-quality scope |
-| Amadeus adapter not live-verified | Open item O-3 |
-| Tariff-sheet URLs unresolved | Open item O-4 |
+| Amadeus adapter written, tested, **permanently disabled** | Self-service tier no longer exists; Enterprise requires a commercial account |
+| Tariff-sheet URLs unresolved | Open item O-4 — **now the critical path** |
 | Rate limiter is per-process | Adequate for a prototype; documented |
 
 ---
