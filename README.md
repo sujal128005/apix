@@ -21,8 +21,16 @@ APIx is the collection and index layer that makes that visible: daily, route-lev
 across six booking horizons, with every published number traceable to an individual
 fare quote.
 
-It is not a replacement for CPI. It computes the same index MoSPI computes, using
-the same formulae, at higher frequency and finer granularity.
+It is not a replacement for CPI, and it does not replicate MoSPI's estimator.
+APIx adopts the **CPI 2024 compilation framework** — Jevons short at the
+elementary level, Young / Modified Laspeyres above it — and applies it to a
+higher-frequency collection design of its own.
+
+Same formula family, different estimator. MoSPI's airfare sampling uses State
+and UT capital Regional Offices, popular routes supplied by DGCA, and specific
+airline selection. APIx uses twenty routes with equal weights and daily
+collection. Those are not the same statistical population, and the difference is
+not cosmetic.
 
 ---
 
@@ -102,7 +110,7 @@ weighted arithmetic specifically to align it with every other item.
 | Passenger counts as proxy weights | Expert Group Report §4.6.3.3 |
 | Airfares collected from online platforms | MoSPI CPI 2024 FAQ, Q27 |
 | Comparator: item 294, COICOP 07.3.3.1.2.01, *domestic* | MoSPI open API, verified 7 Sep 2026 |
-| Outlier screening (MAD, k = 3.5) | **Ours.** MoSPI prescribes no outlier rule for airfare |
+| Outlier screening (MAD, k = 3.5) | **Ours — experimental, and under review.** Measured to suppress genuine price spikes (`docs/evidence/O7-...`). MoSPI prescribes no outlier rule for airfare |
 
 Full detail at `/methodology` and in `docs/`.
 
@@ -172,8 +180,10 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-Money is `Decimal` end to end. A test scans the source tree and fails the build on
-any `float` in a money path; it caught five genuine cases during development.
+Money is `Decimal` end to end — deterministic high-precision decimal arithmetic
+with controlled rounding, not mathematical exactness: logarithms and exponentials
+still approximate. A test scans the source tree and fails the build on any
+`float` in a money path; it caught five genuine cases during development.
 
 ---
 
@@ -186,10 +196,17 @@ monthly average-fare data*. **Research could not establish that such a series
 exists.** DGCA's Tariff Monitoring Unit covers 78 routes monthly, but its output
 surfaces through parliamentary replies rather than as a downloadable time series.
 
-APIx substitutes the **official CPI 2024 domestic-airfare index** — item 294,
-COICOP 07.3.3.1.2.01, an exact scope match rather than a proxy — retrieved from
-MoSPI's own API. Comparison is on **movements**, never levels, because APIx uses
-its own base period rather than 2024 = 100.
+**That statement needs care.** DGCA plainly holds airfare data — its Tariff
+Monitoring Unit monitors 78 routes monthly, and parliamentary answers have
+published DGCA-derived average fares across dozens of sectors. What this project
+could not locate is a continuously downloadable, route-level monthly series in a
+form suitable for the back-test the problem statement describes.
+
+APIx compares instead against the **official CPI 2024 domestic-airfare index** —
+item 294, COICOP 07.3.3.1.2.01. That is the **same conceptual CPI item, not the
+same underlying sample**: MoSPI's collection design and APIx's twenty-route
+basket are different statistical populations. Comparison is on **movements**,
+never levels, because the base periods differ.
 
 The current result is **zero overlapping months**, and the endpoint reports that
 shortfall instead of computing an error metric over an overlap that does not
@@ -204,7 +221,7 @@ Stated here rather than left to be discovered.
 | Limitation | Status |
 |---|---|
 | No live transacted-price source; all observations are `SIMULATED_DEMO` | **Amadeus Self-Service was decommissioned 17 Jul 2026**; Tier 2 is now the path |
-| Route weights are equal, **evidence rung 4** | Open item O-5 |
+| **Route weighting is unresolved.** The current basket is equal-weighted and is an analytical demonstration, not a nationally representative weighting scheme | Open item O-5 — **the project's largest weakness** |
 | No headline index is ever published | By design, while data is simulated |
 | Index **levels** not comparable with CPI — only movements | Permanent, by construction |
 | Airfare *item* weight unknown; Transport's 8.796 is not a stand-in | Needs Annexure 5.3 |

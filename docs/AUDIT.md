@@ -24,7 +24,7 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 | A1 | Multi-source scraping engine, Python, scheduled | **Met** | `packages/collector/` — adapter contract, runner, retry policy, and `scheduler.py`: a daily APScheduler job running in IST, one instance at a time, missed runs coalesced | `/operations` |
 | A2 | Handle JS, anti-bot, sessions **while complying with robots.txt and ToS** | **Met, with a stated reading** | `packages/compliance/` — six-check gate, capability token (ADR-018), fail-closed robots | `/operations` shows refusals |
 | A3 | Cleaned, de-duplicated fare DB with full metadata | **Met** | `raw_quote` → `normalised_quote`, 22 tables, lineage across 7 tables | `/api/v1/provenance/{id}` |
-| A4 | City-pair basket from DGCA passenger traffic | **Partially met** | Weight engine complete; weights are **evidence rung 4 (equal)** — see §C | `/routes` shows the rung |
+| A4 | City-pair basket from DGCA passenger traffic | **NOT MET** | A weight engine exists and enforces evidence provenance, but the weights themselves are **equal**, not derived from passenger traffic. Labelling the gap is not closing it — see §C1 | `/routes` shows the rung |
 | A5 | T+1, T+7, T+15, T+30, T+45 windows | **Exceeded** | Six buckets — **T+21 added**, CPI 2024's actual domestic window | `/lead-time` |
 | A6 | Outlier removal, missing values, sold-out handling | **Met** | MAD screen, missingness taxonomy, imputation per ADR-011 | `/quality` — 3.91% rejection |
 | A7 | Separate base fare, taxes, UDF, convenience fee | **Met** | `fare_component`, `component_confidence` | `/quality` — 80% complete |
@@ -34,7 +34,7 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 | A11 | API for NSO/RBI consumption | **Met** | Versioned REST, OpenAPI, `meta` on every response | `/api/docs` |
 | A12 | Documentation | **Met** | `docs/` — audit, methodology, deployment, demo script, ADRs, evidence files — plus a methodology page citing every source | `/methodology` |
 | A13 | Automated testing | **Met** | 815 tests; `.github/workflows/ci.yml` runs lint, strict typing, the full suite, and five named gates (index drift, bypass path, float on a money path, TLS verification, immutability) | GitHub Actions |
-| A14 | **30 days back-tested against public DGCA monthly fare data** | **Not possible as specified** | See §B | `/api/v1/backtest` |
+| A14 | **30 days back-tested against public DGCA monthly fare data** | **Not met** | No continuously downloadable route-level monthly series located; a CPI comparator is implemented instead, with zero overlap to date — see §B | `/api/v1/backtest` |
 
 ---
 
@@ -51,6 +51,13 @@ published monthly statistics are airline-level — passengers carried, load
 factor, market share, cancellations — and the annual *Handbook on Civil Aviation
 Statistics* reports operating economics rather than route-level average fares.
 
+**A correction to how this was previously stated.** Earlier drafts said the DGCA
+series "does not demonstrably exist", which reads as *DGCA has no airfare data*.
+That is false and would not survive a judge who has read a parliamentary answer.
+DGCA plainly holds and publishes airfare information. The accurate claim is
+narrower: **no continuously downloadable, route-level monthly series in a form
+suitable for the described back-test could be located.**
+
 **What we did instead**, per ADR-015:
 
 **Tier 1 — internal reproducibility.** The engine is a pure function; the same
@@ -64,16 +71,45 @@ domestic routes only, so the scope matches exactly. Nineteen months retrieved
 from MoSPI's own API, zero imputed. Compared on **movements**, never levels.
 
 **Tier 3 — cited DGCA figures.** Individually cited, never interpolated.
-Currently empty, which is itself the finding.
+Currently empty. **Not because DGCA lacks fare data** — parliamentary answers
+have published DGCA-derived average fares across dozens of domestic sectors —
+but because those are point disclosures rather than a downloadable series.
+Ingesting them as individually cited benchmark observations is open work.
 
 **The present result: zero overlapping months.** APIx covers August–September
 2026; the published benchmark ends July 2026. The engine reports the shortfall
 and withholds metrics rather than computing an MAE over an overlap that does not
-exist. Three aligned months is the minimum before an error metric carries
-statistical content.
+exist. Three aligned months is **our** chosen minimum before reporting an error metric.
+It is a judgement about interpretability, not a published statistical rule.
 
 This resolves with time, not code. Two months of collection makes the comparison
 real.
+
+---
+
+## C1. The largest weakness: route weighting
+
+This is the project's most serious gap and it is not a labelling problem.
+
+Route weights determine what "national airfare movement" means. Under equal
+weighting, a thin regional route moves the index as much as Delhi–Mumbai. An
+equal-weighted route index is a legitimate experimental statistic; it is **not**
+an approximation of a nationally representative weighted airfare index, and it
+must not be presented as one.
+
+**A citation this project previously overstated.** Earlier drafts claimed that
+Expert Group Report §4.6.3.3 "sanctions passenger-count proxy weights, so the
+method is right; the data is what's missing."
+
+That is wrong, and it was the most dangerous sentence in this repository.
+§4.6.3.3 discusses **administrative items** — rail fare, electricity — where one
+weighted item maps to several priced items, and permits proxy weights from
+administrative indicators in that setting. It does not authorise passenger
+counts as route weights for a domestic-airfare city-pair basket. The inference
+was ours; the report does not grant it.
+
+**Current position:** route weighting is unresolved. The implementation is an
+analytical demonstration, not a national weighting scheme.
 
 ---
 
@@ -81,7 +117,7 @@ real.
 
 | Limitation | Why | Where it is stated |
 |---|---|---|
-| Route weights are equal, **evidence rung 4** | Open item O-5: no public DGCA per-city-pair passenger-volume table found | `/routes`, `/methodology` |
+| **Route weighting unresolved** — equal weights, not traffic-derived | O-5. No public DGCA per-city-pair passenger-volume table found. See §C1 | `/routes`, `/methodology` |
 | No live transacted-price source; all observations `SIMULATED_DEMO` | Amadeus Self-Service decommissioned 17 Jul 2026 (O-3 closed). Tier 2 tariff sheets are now the path, pending O-4 | Every page, `/operations` |
 | **No headline index is ever published** | A database trigger refuses one for any date carrying simulated data | Dashboard banner |
 | Index **levels** not comparable with CPI | APIx uses its own base period, not 2024 = 100 | `/methodology`, `/api/v1/backtest` |
@@ -125,7 +161,8 @@ during this build.
 6. A Windows path-separator bug in a compliance test that passed on Linux.
 7. A missing `APIX_CONTACT_URL` that made the gate refuse 2,520 requests while the script printed zeros — surfaced, then fixed to report the refusal.
 8. A rate limiter that counted static assets and locked a reader out of the site after a few page refreshes.
-9. **Five tests that failed on their own explanatory comments** — searching for "CDN", "State Emblem", "robotparser", a bypass flag, an invented footer link. Each time the code was right and the assertion was reading prose. A `_code_only()` helper now strips comments before scanning, because a test that punishes writing down your reasoning teaches you to stop writing it down.
+9. **A sensitivity analysis, run to answer "why k = 3.5?", found the outlier screen silently doing nothing** whenever carriers on a route moved by the same factor — the case it was most needed for. Asking for evidence about a parameter exposed a bug in the method that used it.
+10. **Five tests that failed on their own explanatory comments** — searching for "CDN", "State Emblem", "robotparser", a bypass flag, an invented footer link. Each time the code was right and the assertion was reading prose. A `_code_only()` helper now strips comments before scanning, because a test that punishes writing down your reasoning teaches you to stop writing it down.
 
 ---
 
@@ -147,10 +184,16 @@ requirement, and the only one defensible to the ministry that wrote it.
 
 ## F. Verdict
 
-Thirteen of fourteen mandatory requirements are met, one of them exceeded. The
-fourteenth cannot be met as written because the data source it names does not
-demonstrably exist; a stronger substitute is implemented and its current
-shortfall is reported rather than concealed.
+**Twelve met, one exceeded, two not met.**
+
+- **12 met** (A1, A2, A3, A6, A7, A8, A9, A10, A11, A12, A13, and A5's five required windows)
+- **1 exceeded** (A5 — a sixth window, T+21, matching CPI's actual domestic collection horizon)
+- **2 not met** (A4 route weighting; A14 back-testing)
+
+The earlier "thirteen of fourteen" framing did not follow from this document's
+own table: A4 was marked partially met and then counted as met. A requirement
+whose substance is a traffic-derived basket is not partially satisfied by an
+equal-weighted one.
 
 The system's defining property is that it refuses. It refuses to publish an index
 from simulated data, refuses to fetch from a source that disallows it, refuses to

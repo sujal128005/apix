@@ -270,3 +270,78 @@ def test_winsorisation_replaces_rejection_when_n_is_small() -> None:
     assert len(kept) == 4, "nothing discarded at small n"
     assert any(v.rule_id == "OUTLIER_WINSORISE_P5_P95" for v in verdicts)
     assert all(v.kept for v in verdicts)
+
+
+# -- the degenerate-MAD defect --------------------------------------------
+
+
+def test_an_outlier_is_caught_even_when_the_rest_move_identically() -> None:
+    """The defect a sensitivity analysis exposed, and the reason for the fallback.
+
+    Carriers on a route commonly move by the same factor, which makes the median
+    absolute deviation *exactly zero*. The original code returned every pair
+    unscreened in that case - so a 4x outlier sat beside four identical
+    relatives and survived at every threshold. The screen stopped working in
+    precisely the situation it existed for.
+
+    Where MAD is zero the scale now falls back to mean absolute deviation
+    (Iglewicz and Hoaglin), so the stratum is still screened.
+    """
+    pairs = [
+        pair("A", "5000", "5100"),
+        pair("B", "6000", "6120"),
+        pair("C", "7000", "7140"),
+        pair("D", "8000", "8160"),
+        pair("E", "5000", "21000"),
+    ]
+    kept, verdicts = mad_screen(pairs, k=Decimal("3.5"))
+
+    assert len(verdicts) == 1, "the 4x outlier must be rejected"
+    assert verdicts[0].key == "E"
+    assert len(kept) == 4
+
+
+def test_genuinely_identical_relatives_are_left_alone() -> None:
+    """Zero dispersion with nothing extreme must reject nothing.
+
+    The fallback must not turn a perfectly consistent stratum into a stratum
+    where something gets thrown away for being average.
+    """
+    pairs = [pair(c, "5000", "5100") for c in "ABCDE"]
+    kept, verdicts = mad_screen(pairs, k=Decimal("3.5"))
+
+    assert verdicts == []
+    assert len(kept) == 5
+
+
+def test_a_normal_spread_is_not_over_screened() -> None:
+    """The fallback only applies when MAD is zero; ordinary variation is safe."""
+    pairs = [
+        pair("A", "5000", "5000"),
+        pair("B", "5000", "5100"),
+        pair("C", "5000", "5200"),
+        pair("D", "5000", "5150"),
+        pair("E", "5000", "5050"),
+    ]
+    kept, verdicts = mad_screen(pairs, k=Decimal("3.5"))
+
+    assert verdicts == []
+    assert len(kept) == 5
+
+
+def test_the_fallback_still_respects_the_threshold() -> None:
+    """It is a scale estimate, not a licence to reject.
+
+    The same outlier that is rejected at k=3.5 must survive a permissive
+    threshold - otherwise the fallback would have replaced one broken screen
+    with another.
+    """
+    pairs = [
+        pair("A", "5000", "5100"),
+        pair("B", "6000", "6120"),
+        pair("C", "7000", "7140"),
+        pair("D", "8000", "8160"),
+        pair("E", "5000", "21000"),
+    ]
+    assert len(mad_screen(pairs, k=Decimal("3.5"))[1]) == 1
+    assert len(mad_screen(pairs, k=Decimal("5.0"))[1]) == 0

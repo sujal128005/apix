@@ -157,12 +157,31 @@ def mad_screen(
     deviations = [abs(x - median) for x in logs]
     mad = _median(deviations)
 
+    # When MAD degenerates, fall back to mean absolute deviation.
+    #
+    # A sensitivity analysis found this the hard way. In a stratum where most
+    # flights move by an identical factor - which is common, because carriers
+    # follow each other - the median absolute deviation is *exactly zero*. The
+    # previous code returned every pair unscreened in that case, reasoning that
+    # zero dispersion meant nothing to screen. That is backwards: it meant a
+    # 4x outlier sat beside four identical relatives and survived at every
+    # threshold, including k = 3.5. The screen silently stopped working in
+    # precisely the case it was most needed.
+    #
+    # The remedy is Iglewicz and Hoaglin's: where MAD is zero, scale by the mean
+    # absolute deviation instead (1.253314 x meanAD, the consistency constant
+    # for the normal distribution, against 1.4826 for MAD). Chosen from the
+    # robust-statistics literature rather than picked, which was the whole point
+    # of running the sensitivity analysis.
     if mad == 0:
-        # Every relative identical: nothing to screen, and dividing by zero
-        # would reject the whole stratum for being too consistent.
-        return list(pairs), []
-
-    scale = Decimal("1.4826") * mad
+        mean_ad = sum(deviations, Decimal(0)) / len(deviations)
+        if mean_ad == 0:
+            # Every relative genuinely identical. Nothing to screen, and nothing
+            # extreme to miss.
+            return list(pairs), []
+        scale = Decimal("1.253314") * mean_ad
+    else:
+        scale = Decimal("1.4826") * mad
     kept, verdicts = [], []
     for pair in pairs:
         score = abs(pair.log_relative - median) / scale
