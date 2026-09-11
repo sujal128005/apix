@@ -417,3 +417,83 @@ def test_an_internal_error_never_leaks_a_stack_trace(client: TestClient) -> None
     assert "Traceback" not in body
     assert "File \"" not in body
     assert "sqlalchemy" not in body.lower()
+
+
+# -- government portal conventions ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path", ["/", "/routes", "/lead-time", "/quality", "/methodology", "/operations"]
+)
+def test_every_page_has_a_skip_target_and_shared_chrome(
+    client: TestClient, path: str
+) -> None:
+    """Accessibility affordances must exist on every page, not just the home page."""
+    html = client.get(path).text
+    assert 'id="main"' in html, "skip-to-content needs a target"
+    assert "initChrome(" in html
+    assert 'id="gov-footer"' in html
+    assert "/static/style.css" in html and "/static/apix.js" in html
+
+
+def test_the_accessibility_bar_actually_works(client: TestClient) -> None:
+    """A GoI accessibility bar that resizes nothing is worse than none at all.
+
+    The text-size controls are wired to a CSS custom property the whole page
+    scales from, and the choice persists for the session.
+    """
+    js = client.get("/static/apix.js").text
+    assert "initTextSizer" in js
+    assert "--font-scale" in js
+    assert "sessionStorage" in js
+    assert 'aria-pressed' in js
+
+
+def test_the_state_emblem_is_not_used(client: TestClient) -> None:
+    """Display of the State Emblem of India is restricted under the State Emblem
+    of India (Prohibition of Improper Use) Act, 2005. This is a student project.
+
+    The official feel comes from GoI layout conventions - the accessibility
+    strip, bilingual masthead, navy navigation band, standard footer - not from
+    appropriating a protected mark.
+
+    Checked against rendered markup and asset references rather than by searching
+    for the word "emblem" - the first version of this test failed on the comment
+    in style.css explaining why the emblem is avoided. That is the fourth test in
+    this suite to have punished written reasoning, so the assertions look at what
+    the code *does*, never at what it says about itself.
+    """
+    import re
+
+    html = client.get("/").text
+    js = client.get("/static/apix.js").text
+    css = client.get("/static/style.css").text
+
+    # No raster or vector assets at all: the masthead mark is drawn in CSS.
+    for source, label in ((html, "index.html"), (js, "apix.js")):
+        images = re.findall(r"<img[^>]*>", source, re.I)
+        assert not images, f"{label} embeds an image: {images}"
+
+    for source, label in ((css, "style.css"), (js, "apix.js")):
+        urls = re.findall(r"url\(([^)]+)\)", source)
+        assert not urls, f"{label} loads an asset: {urls}"
+
+
+def test_the_footer_says_this_is_not_an_official_publication(
+    client: TestClient,
+) -> None:
+    """A portal that looks official must state plainly that it is not.
+
+    Everything else about the design is meant to read as a government
+    statistical site; without this line that resemblance would be a claim.
+    """
+    js = client.get("/static/apix.js").text
+    assert "Not an official publication" in js
+    assert "Prototype" in js
+
+
+def test_the_footer_timestamp_comes_from_the_api(client: TestClient) -> None:
+    """A hardcoded 'last updated' on a statistics portal is worse than none."""
+    html = client.get("/").text
+    assert "govFooter(" in html
+    assert "meta.as_of" in html

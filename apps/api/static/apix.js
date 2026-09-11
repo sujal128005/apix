@@ -116,18 +116,98 @@ function barChart(bars, {height = 240, valueKey = "y", labelKey = "x", format = 
 
 function masthead(active) {
   const pages = [
-    ["/", "Dashboard"], ["/routes", "Routes"], ["/lead-time", "Lead time"],
-    ["/quality", "Data quality"], ["/api/v1/sources", "Sources"],
-    ["/api/v1/backtest", "Validation"], ["/methodology", "Methodology"],
-    ["/operations", "Operations"], ["/api/docs", "API"],
+    ["/", "Home"], ["/routes", "Route Explorer"], ["/lead-time", "Lead Time"],
+    ["/quality", "Data Quality"], ["/api/v1/backtest", "Validation"],
+    ["/methodology", "Methodology"], ["/operations", "Operations"],
+    ["/api/docs", "API"],
   ];
-  return `<header class="masthead">
-    <div class="org">Ministry of Statistics and Programme Implementation &middot;
-      Data Informatics &amp; Innovation Division</div>
-    <h1>APIx &mdash; Real-time Airfare Price Index</h1>
-    <div class="sub">Daily airfare index for India, computed with the CPI 2024
-      methodology &middot; Problem Statement 26056</div>
+
+  return `
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <div class="topbar">
+    <span class="gov">भारत सरकार &nbsp;|&nbsp; GOVERNMENT OF INDIA</span>
+    <span class="spacer"></span>
+    <a href="#main">Skip to Main Content</a>
+    <span class="sizer" role="group" aria-label="Text size">
+      <button type="button" data-size="0.875" aria-pressed="false" title="Decrease text size">A-</button>
+      <button type="button" data-size="1"     aria-pressed="true"  title="Normal text size">A</button>
+      <button type="button" data-size="1.15"  aria-pressed="false" title="Increase text size">A+</button>
+    </span>
+    <a href="/api/docs">Screen Reader Access</a>
+  </div>
+
+  <header class="masthead">
+    <div class="mark" aria-hidden="true">APIx</div>
+    <div class="titles">
+      <div class="hindi">सांख्यिकी और कार्यक्रम कार्यान्वयन मंत्रालय</div>
+      <div class="english">Ministry of Statistics and Programme Implementation</div>
+      <div class="division">Data Informatics &amp; Innovation Division &middot; National Statistical Office</div>
+    </div>
+    <div class="system">
+      <div class="name">Real-time Airfare Price Index</div>
+      <div class="ps">Problem Statement 26056 &middot; Smart India Hackathon 2026</div>
+    </div>
   </header>
-  <nav>${pages.map(([href, label]) =>
-    `<a href="${href}"${href === active ? ' class="active"' : ""}>${label}</a>`).join("")}</nav>`;
+
+  <nav class="primary" aria-label="Primary">
+    ${pages.map(([href, label]) =>
+      `<a href="${href}"${href === active ? ' class="active" aria-current="page"' : ""}>${label}</a>`
+    ).join("")}
+  </nav>`;
+}
+
+function govFooter(lastUpdated) {
+  const policies = [
+    ["/methodology", "Methodology"],
+    ["/api/v1/methodology", "Machine-readable Methodology"],
+    ["/api/docs", "API Documentation"],
+    ["/operations", "System Status"],
+    ["/api/v1/health", "Health Check"],
+  ];
+  return `
+  <div class="gov-footer">
+    <div class="links">${policies.map(([h, l]) => `<a href="${h}">${l}</a>`).join("")}</div>
+    <div class="attribution">
+      <div class="row"><strong>Prototype.</strong> Built for Smart India Hackathon 2026 against
+        Problem Statement 26056. Not an official publication of the Ministry of Statistics and
+        Programme Implementation, and not a source of official statistics.</div>
+      <div class="row">CPI data is retrieved from MoSPI's open API at
+        <code>api.mospi.gov.in</code> and remains Government of India official statistics. APIx
+        stores it with its source URL and retrieval timestamp.</div>
+      <div class="row">Every figure on this site is traceable to an individual fare quote, its
+        source and its collection timestamp.</div>
+    </div>
+    <div class="disclaimer">
+      Last updated: ${esc(lastUpdated || "—")} &nbsp;|&nbsp;
+      Index methodology follows MoSPI CPI 2024 (Expert Group Report, January 2026) &nbsp;|&nbsp;
+      Best viewed in a current version of Chrome, Firefox or Edge
+    </div>
+  </div>`;
+}
+
+/* Text resizing. A GoI accessibility bar that does not resize anything would be
+   worse than not having one, so this is wired to a CSS custom property that the
+   whole page scales from. */
+function initTextSizer() {
+  const stored = sessionStorage.getItem("apix-font-scale");
+  if (stored) document.documentElement.style.setProperty("--font-scale", stored);
+
+  document.querySelectorAll(".topbar .sizer button").forEach(button => {
+    button.addEventListener("click", () => {
+      const scale = button.dataset.size;
+      document.documentElement.style.setProperty("--font-scale", scale);
+      sessionStorage.setItem("apix-font-scale", scale);
+      document.querySelectorAll(".topbar .sizer button").forEach(b =>
+        b.setAttribute("aria-pressed", String(b === button)));
+    });
+  });
+}
+
+/* Call once per page, after the chrome is injected. */
+function initChrome(active, lastUpdated) {
+  document.getElementById("chrome").innerHTML = masthead(active);
+  const foot = document.getElementById("gov-footer");
+  if (foot) foot.innerHTML = govFooter(lastUpdated);
+  initTextSizer();
 }

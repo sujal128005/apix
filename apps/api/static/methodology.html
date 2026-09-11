@@ -9,7 +9,7 @@
 <body>
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <div class="banner">
     <strong>APIx does not invent an index formula.</strong>
     It implements the formulae MoSPI specifies for CPI 2024, sourced from the
@@ -136,14 +136,11 @@
   </section>
 </main>
 
-<footer>
-  Machine-readable methodology: <code>/api/v1/methodology</code> &middot;
-  Validation and its limits: <code>/api/v1/backtest</code>
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/methodology");
+initChrome("/methodology", document.body.dataset.updated);
 
 (async function () {
   const r = await get("/api/v1/methodology");
@@ -180,6 +177,16 @@ document.getElementById("chrome").innerHTML = masthead("/methodology");
     {label: "Assumption", render: x => esc(x)},
   ], d.labelled_assumptions.map(a => a));
 })();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>

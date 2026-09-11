@@ -1,250 +1,1170 @@
-/* APIx — visual system.
+/* ============================================================
+   APIx
+   Government of India / MoSPI inspired visual system
 
-   Modelled on the current MoSPI portal rather than older GoI templates: light
-   and airy, white cards with soft shadows and rounded corners, navy used as
-   text and accent rather than as filled blocks, generous whitespace, compact
-   type.
+   UI ONLY.
+   No JavaScript assumptions.
+   No markup/functionality changes required.
 
-   The earlier version of this stylesheet used solid navy bars for every section
-   header and oversized type throughout. It read as heavy and dated next to the
-   real thing, which is lighter than one expects a government site to be.
-
-   No State Emblem: its display is restricted under the State Emblem of India
-   (Prohibition of Improper Use) Act, 2005, and this is a student project.
-   No web fonts, no CDN, no build step. */
+   Design direction:
+   - Government / statistics portal
+   - Institutional, official, information-dense
+   - White + deep government blue
+   - Strong horizontal rules
+   - Minimal rounded cards
+   - Less SaaS, less dashboard-app
+   - Better hierarchy for tables and statistics
+   ============================================================ */
 
 :root {
-  --ink:        #1f2328;
-  --ink-soft:   #4a515a;
-  --ink-faint:  #78808a;
+  --gov-blue:        #123b73;
+  --gov-blue-dark:   #0b2850;
+  --gov-blue-deep:   #071d3a;
+  --gov-blue-mid:    #1c4f8f;
+  --gov-blue-light:  #eaf1f8;
+  --gov-blue-pale:   #f4f7fb;
 
-  --line:       #e3e7ec;
-  --line-soft:  #eef1f5;
+  --saffron:         #e87817;
+  --saffron-pale:    #fff4e9;
 
-  --page:       #f5f7fa;
-  --panel:      #ffffff;
+  --green:           #167447;
+  --green-pale:      #eef8f2;
 
-  --navy:       #1a3d7c;
-  --navy-deep:  #12294f;
-  --navy-tint:  #eff4fb;
-  --accent:     #d97706;
+  --red:             #a52a2a;
+  --red-pale:        #fff0f0;
 
-  --ok:         #15803d;
-  --ok-tint:    #f0fdf4;
-  --warn:       #a16207;
-  --warn-tint:  #fffbeb;
-  --stop:       #b91c1c;
-  --stop-tint:  #fef2f2;
+  --gold:            #9a6b00;
+  --gold-pale:       #fff8e5;
 
-  --shadow:     0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
-  --shadow-lg:  0 2px 4px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.07);
-  --radius:     8px;
+  --ink:             #1c2733;
+  --ink-soft:        #45515d;
+  --ink-muted:       #687582;
+  --ink-faint:       #8994a0;
 
-  --font-scale: 1;
+  --white:            #ffffff;
+  --page:             #f3f5f7;
+
+  --border:           #d3d9e0;
+  --border-dark:      #b8c1ca;
+  --border-light:     #e7ebef;
+
+  --shadow:           0 1px 3px rgba(20, 38, 56, .07);
+  --shadow-hover:     0 2px 8px rgba(20, 38, 56, .10);
+
+  --radius:            3px;
+
+  --content-width:     1380px;
+  --font-scale:        1;
 }
 
-* { box-sizing: border-box; }
-html { font-size: calc(15px * var(--font-scale)); }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: calc(15px * var(--font-scale));
+  background: var(--page);
+}
 
 body {
   margin: 0;
-  background: var(--page);
+  background:
+    linear-gradient(
+      to bottom,
+      #eef2f6 0,
+      #f5f6f8 170px,
+      var(--page) 170px,
+      var(--page) 100%
+    );
   color: var(--ink);
-  font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
-  line-height: 1.55;
+  font-family:
+    "Segoe UI",
+    Arial,
+    Helvetica,
+    sans-serif;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* --- accessibility strip ------------------------------------------------ */
+/* ============================================================
+   ACCESSIBILITY / GOVERNMENT UTILITY BAR
+   ============================================================ */
 
 .topbar {
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-  font-size: .72rem;
-  padding: 5px 32px;
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  color: var(--ink-faint);
+  min-height: 34px;
+  background: var(--gov-blue-dark);
+  color: #dce8f5;
+
+  padding: 0 34px;
+
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  font-size: .73rem;
+  border-bottom: 1px solid rgba(255,255,255,.13);
 }
-.topbar .gov { font-weight: 600; color: var(--ink-soft); }
-.topbar .spacer { margin-left: auto; }
-.topbar a, .topbar button {
-  color: var(--ink-faint); text-decoration: none;
-  background: none; border: none; font: inherit; cursor: pointer; padding: 2px 3px;
+
+.topbar .gov {
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: .01em;
 }
-.topbar a:hover, .topbar button:hover { color: var(--navy); }
-.topbar .sizer { display: inline-flex; gap: 3px; align-items: center; }
+
+.topbar .spacer {
+  margin-left: auto;
+}
+
+.topbar a,
+.topbar button {
+  color: #dce8f5;
+  text-decoration: none;
+
+  border: 0;
+  background: transparent;
+
+  font: inherit;
+  cursor: pointer;
+
+  padding: 3px 4px;
+
+  transition:
+    background .15s ease,
+    color .15s ease;
+}
+
+.topbar a:hover,
+.topbar button:hover {
+  color: #ffffff;
+  background: rgba(255,255,255,.08);
+}
+
+.topbar .sizer {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
 .topbar .sizer button {
-  border: 1px solid var(--line); background: var(--panel);
-  border-radius: 4px; line-height: 1; padding: 3px 7px; font-size: .72rem;
+  min-width: 24px;
+
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 2px;
+
+  padding: 2px 6px;
+  line-height: 1.1;
 }
-.topbar .sizer button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
 
-.skip-link { position: absolute; left: -9999px; background: var(--navy); color: #fff; padding: 8px 14px; z-index: 100; }
-.skip-link:focus { left: 8px; top: 8px; }
+.topbar .sizer button[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--gov-blue-dark);
+  border-color: #ffffff;
+}
 
-/* --- masthead ----------------------------------------------------------- */
+/* ============================================================
+   SKIP LINK
+   ============================================================ */
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+
+  background: var(--gov-blue-dark);
+  color: #ffffff;
+
+  padding: 8px 14px;
+  z-index: 1000;
+
+  border-radius: 2px;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 10px;
+}
+
+/* ============================================================
+   MASTHEAD
+   ============================================================ */
 
 .masthead {
-  background: var(--panel);
-  padding: 14px 32px;
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-}
-.masthead .mark {
-  width: 42px; height: 42px; flex: none;
-  border-radius: 50%; background: var(--navy);
-  display: grid; place-items: center;
-  color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
-}
-.masthead .hindi { font-size: .82rem; color: var(--ink-soft); line-height: 1.35; }
-.masthead .english {
-  font-size: .95rem; font-weight: 700; color: var(--navy); line-height: 1.35;
-}
-.masthead .division { font-size: .72rem; color: var(--ink-faint); }
-.masthead .system { margin-left: auto; text-align: right; }
-.masthead .system .name { font-size: 1rem; font-weight: 700; color: var(--ink); }
-.masthead .system .ps { font-size: .72rem; color: var(--ink-faint); }
+  background: var(--white);
 
-/* --- navigation --------------------------------------------------------- */
+  min-height: 94px;
+  padding: 18px 34px;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+/*
+   Deliberately NOT using the State Emblem.
+
+   The circular mark is now treated as a neutral
+   institutional identity block instead of a SaaS logo.
+*/
+
+.masthead .mark {
+  width: 52px;
+  height: 52px;
+
+  flex: none;
+
+  border-radius: 2px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--gov-blue-dark),
+      var(--gov-blue)
+    );
+
+  display: grid;
+  place-items: center;
+
+  color: #ffffff;
+
+  font-size: .82rem;
+  font-weight: 700;
+
+  letter-spacing: .04em;
+
+  border: 1px solid #092247;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.masthead .hindi {
+  color: #56616d;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+
+.masthead .english {
+  color: var(--gov-blue-dark);
+
+  font-size: 1.05rem;
+  line-height: 1.25;
+
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.masthead .division {
+  margin-top: 3px;
+
+  color: var(--ink-muted);
+
+  font-size: .73rem;
+  line-height: 1.3;
+}
+
+.masthead .system {
+  margin-left: auto;
+
+  text-align: right;
+  align-self: center;
+}
+
+.masthead .system .name {
+  color: var(--gov-blue-dark);
+
+  font-size: 1.02rem;
+  line-height: 1.25;
+
+  font-weight: 700;
+}
+
+.masthead .system .ps {
+  margin-top: 3px;
+
+  color: var(--ink-muted);
+
+  font-size: .73rem;
+}
+
+/* ============================================================
+   PRIMARY GOVERNMENT NAVIGATION
+   ============================================================ */
 
 nav.primary {
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 0 32px;
-  display: flex; gap: 4px; flex-wrap: wrap;
-  font-size: .82rem;
-  position: sticky; top: 0; z-index: 20;
-  box-shadow: var(--shadow);
+  min-height: 47px;
+
+  background: var(--gov-blue);
+
+  padding: 0 34px;
+
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+
+  flex-wrap: wrap;
+
+  border-top: 1px solid #28548a;
+  border-bottom: 4px solid var(--saffron);
+
+  position: sticky;
+  top: 0;
+
+  z-index: 20;
+
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
 }
+
 nav.primary a {
-  color: var(--ink-soft); text-decoration: none;
-  padding: 11px 14px; display: block;
-  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+
+  color: #ffffff;
+
+  text-decoration: none;
+
+  padding: 0 17px;
+
+  min-height: 43px;
+
+  font-size: .79rem;
+  font-weight: 500;
+
+  border-right: 1px solid rgba(255,255,255,.12);
+
+  position: relative;
+
+  transition:
+    background .15s ease,
+    color .15s ease;
 }
-nav.primary a:hover { color: var(--navy); background: var(--navy-tint); }
-nav.primary a.active { color: var(--navy); font-weight: 600; border-bottom-color: var(--accent); }
 
-main { padding: 22px 32px 56px; max-width: 1280px; }
+nav.primary a:first-child {
+  border-left: 1px solid rgba(255,255,255,.12);
+}
 
-/* --- notices ------------------------------------------------------------ */
+nav.primary a:hover {
+  background: var(--gov-blue-dark);
+  color: #ffffff;
+}
+
+nav.primary a.active {
+  background: #ffffff;
+  color: var(--gov-blue-dark);
+
+  font-weight: 700;
+
+  box-shadow:
+    inset 0 -3px 0 var(--saffron);
+}
+
+/* ============================================================
+   PAGE
+   ============================================================ */
+
+main {
+  width: 100%;
+  max-width: var(--content-width);
+
+  margin: 0 auto;
+
+  padding:
+    18px
+    34px
+    60px;
+}
+
+/* ============================================================
+   OPTIONAL PAGE TITLE SUPPORT
+   If your HTML has headings before sections, they now look
+   like an official statistics portal heading.
+   ============================================================ */
+
+main > h1 {
+  margin: 6px 0 18px;
+
+  color: var(--gov-blue-dark);
+
+  font-size: 1.55rem;
+  font-weight: 700;
+
+  line-height: 1.25;
+
+  border-bottom: 1px solid var(--border);
+
+  padding-bottom: 11px;
+}
+
+main > h1::after {
+  content: "";
+
+  display: block;
+
+  width: 54px;
+  height: 3px;
+
+  margin-top: 10px;
+
+  background: var(--saffron);
+}
+
+/* ============================================================
+   NOTICES
+   ============================================================ */
 
 .banner {
-  background: var(--warn-tint);
-  border: 1px solid #f0e0b6;
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 12px 16px; margin-bottom: 20px; font-size: .84rem;
-  color: var(--ink-soft);
+  background: var(--gold-pale);
+
+  border: 1px solid #ead79f;
+  border-left: 5px solid var(--saffron);
+
+  border-radius: 2px;
+
+  padding: 11px 15px;
+
+  margin-bottom: 18px;
+
+  font-size: .82rem;
+  line-height: 1.5;
+
+  color: #4c4a42;
+
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
 }
-.banner strong { color: var(--warn); }
 
-/* --- statistic cards ---------------------------------------------------- */
+.banner strong {
+  color: #805d00;
+}
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
+/* ============================================================
+   STATISTIC STRIP
+   ============================================================ */
+
+.grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(220px, 1fr));
+
+  gap: 0;
+
+  margin-bottom: 18px;
+
+  background: var(--white);
+
+  border: 1px solid var(--border);
+}
+
 .stat {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 14px 16px;
-}
-.stat .label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
-.stat .value { font-size: 1.5rem; font-weight: 700; margin: 6px 0 3px; font-variant-numeric: tabular-nums; color: var(--navy); line-height: 1.2; }
-.stat .value.muted { font-size: .95rem; font-weight: 600; color: var(--ink-soft); }
-.stat .note { font-size: .74rem; color: var(--ink-faint); line-height: 1.45; }
+  min-height: 108px;
 
-/* --- panels ------------------------------------------------------------- */
+  background: var(--white);
+
+  border: 0;
+  border-right: 1px solid var(--border);
+
+  border-radius: 0;
+
+  box-shadow: none;
+
+  padding: 15px 18px;
+}
+
+.stat:last-child {
+  border-right: 0;
+}
+
+.stat .label {
+  color: #687582;
+
+  font-size: .67rem;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: .07em;
+
+  line-height: 1.35;
+}
+
+.stat .value {
+  margin: 7px 0 3px;
+
+  color: var(--gov-blue);
+
+  font-size: 1.55rem;
+  font-weight: 700;
+
+  line-height: 1.15;
+
+  font-variant-numeric: tabular-nums;
+}
+
+.stat .value.muted {
+  color: var(--ink-soft);
+
+  font-size: .94rem;
+  font-weight: 600;
+}
+
+.stat .note {
+  color: var(--ink-faint);
+
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+/* ============================================================
+   CONTENT SECTIONS
+   ============================================================ */
 
 section {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  margin-bottom: 18px; overflow: hidden;
+  background: var(--white);
+
+  border: 1px solid var(--border);
+
+  border-radius: 2px;
+
+  box-shadow: var(--shadow);
+
+  margin-bottom: 18px;
+
+  overflow: hidden;
 }
+
+/*
+   Government-style section header:
+   compact, horizontal, information-first.
+*/
+
 section > h2 {
-  margin: 0; padding: 13px 18px;
-  font-size: .88rem; font-weight: 700; color: var(--navy);
-  border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; gap: 9px;
+  min-height: 43px;
+
+  margin: 0;
+  padding: 10px 16px;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  background:
+    linear-gradient(
+      to bottom,
+      #ffffff,
+      #f7f9fb
+    );
+
+  color: var(--gov-blue-dark);
+
+  font-size: .88rem;
+  font-weight: 700;
+
+  line-height: 1.25;
+
+  border-bottom: 1px solid var(--border);
 }
+
 section > h2::before {
-  content: ""; width: 3px; height: 15px; border-radius: 2px;
-  background: var(--accent); flex: none;
+  content: "";
+
+  width: 4px;
+  height: 18px;
+
+  flex: none;
+
+  border-radius: 0;
+
+  background: var(--saffron);
 }
-section > .body { padding: 15px 18px; }
 
-/* --- tables ------------------------------------------------------------- */
+section > .body {
+  padding: 16px 18px;
+}
 
-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-th, td { text-align: left; padding: 9px 18px; border-bottom: 1px solid var(--line-soft); }
+/* ============================================================
+   TABLES
+   ============================================================ */
+
+table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  font-size: .81rem;
+
+  background: #ffffff;
+}
+
+th,
+td {
+  text-align: left;
+
+  padding:
+    9px
+    13px;
+
+  border-bottom: 1px solid var(--border-light);
+
+  vertical-align: middle;
+}
+
 th {
-  font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--ink-faint); font-weight: 600; background: #fbfcfd;
-  border-bottom: 1px solid var(--line);
+  background: #eef3f8;
+
+  color: #425365;
+
+  font-size: .66rem;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: .055em;
+
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+
   white-space: nowrap;
 }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: var(--navy-tint); }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-tr.highlight td { background: var(--navy-tint); font-weight: 600; }
+
+tbody tr:nth-child(even) td {
+  background: #fbfcfd;
+}
+
+tbody tr:hover td {
+  background: var(--gov-blue-pale);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+td.num {
+  text-align: right;
+
+  font-variant-numeric: tabular-nums;
+
+  white-space: nowrap;
+}
+
+tr.highlight td {
+  background: #eaf2fb;
+
+  color: var(--gov-blue-dark);
+
+  font-weight: 700;
+
+  border-top: 1px solid #c9d9ea;
+  border-bottom: 1px solid #c9d9ea;
+}
+
+/* ============================================================
+   METADATA / SOURCE FOOTNOTES
+   ============================================================ */
 
 .meta {
-  font-size: .74rem; color: var(--ink-faint); line-height: 1.5;
-  padding: 11px 18px; border-top: 1px solid var(--line-soft); background: #fbfcfd;
-}
-code {
-  font-family: ui-monospace, Consolas, monospace; font-size: .78rem;
-  background: var(--navy-tint); color: var(--navy);
-  padding: 1px 6px; border-radius: 4px;
-}
-.empty { color: var(--ink-faint); font-style: italic; padding: 20px 18px; font-size: .84rem; }
+  padding: 10px 16px;
 
-/* --- status tags -------------------------------------------------------- */
+  background: #f7f9fb;
+
+  border-top: 1px solid var(--border-light);
+
+  color: var(--ink-muted);
+
+  font-size: .72rem;
+
+  line-height: 1.5;
+}
+
+.meta strong {
+  color: var(--ink-soft);
+}
+
+/* ============================================================
+   CODE
+   ============================================================ */
+
+code {
+  display: inline-block;
+
+  font-family:
+    ui-monospace,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: .76rem;
+
+  background: #eef3f8;
+
+  color: var(--gov-blue-dark);
+
+  padding: 1px 5px;
+
+  border: 1px solid #dce4ec;
+
+  border-radius: 2px;
+}
+
+.empty {
+  padding: 20px 18px;
+
+  color: var(--ink-faint);
+
+  font-size: .82rem;
+
+  font-style: italic;
+}
+
+/* ============================================================
+   STATUS TAGS
+   ============================================================ */
 
 .tag {
-  display: inline-block; font-size: .68rem; font-weight: 600;
-  padding: 2px 8px; border-radius: 12px; border: 1px solid; letter-spacing: .02em;
+  display: inline-flex;
+  align-items: center;
+
+  min-height: 22px;
+
+  padding: 2px 8px;
+
+  border-radius: 2px;
+
+  border: 1px solid;
+
+  font-size: .65rem;
+  font-weight: 700;
+
+  letter-spacing: .025em;
+  text-transform: uppercase;
+
+  line-height: 1;
 }
-.tag.sim  { color: var(--warn); border-color: #f0deb0; background: var(--warn-tint); }
-.tag.live { color: var(--ok);   border-color: #bbf7d0; background: var(--ok-tint); }
-.tag.off  { color: var(--navy); border-color: #c7d9f2; background: var(--navy-tint); }
-.tag.stop { color: var(--stop); border-color: #fecaca; background: var(--stop-tint); }
 
-select, input[type="text"] {
-  font: inherit; font-size: .84rem; padding: 6px 10px;
-  border: 1px solid var(--line); border-radius: 6px;
-  background: var(--panel); color: var(--ink);
+.tag.sim {
+  color: #815d00;
+  border-color: #e5ce8d;
+  background: var(--gold-pale);
 }
-select:focus, input:focus { outline: 2px solid var(--navy-tint); border-color: var(--navy); }
 
-/* --- charts ------------------------------------------------------------- */
+.tag.live {
+  color: #176a42;
+  border-color: #b7dfca;
+  background: var(--green-pale);
+}
 
-.chart { padding: 16px 18px 6px; }
-.chart svg { display: block; width: 100%; height: auto; }
-.chart .axis { stroke: var(--line); stroke-width: 1; }
-.chart .grid-line { stroke: var(--line-soft); stroke-width: 1; }
-.chart .series { fill: none; stroke: var(--navy); stroke-width: 2; }
-.chart .point { fill: var(--navy); }
-.chart .bar { fill: var(--navy); }
-.chart .bar.cpi { fill: var(--accent); }
-.chart text { font-family: "Segoe UI", system-ui, sans-serif; font-size: 11px; fill: var(--ink-faint); }
-.chart text.value { fill: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 10px; }
+.tag.off {
+  color: var(--gov-blue);
+  border-color: #bfd1e5;
+  background: var(--gov-blue-light);
+}
 
-/* --- footer ------------------------------------------------------------- */
+.tag.stop {
+  color: #9b2828;
+  border-color: #edc1c1;
+  background: var(--red-pale);
+}
 
-.gov-footer { margin-top: 36px; }
+/* ============================================================
+   FORM CONTROLS
+   ============================================================ */
+
+select,
+input[type="text"] {
+  height: 34px;
+
+  font: inherit;
+  font-size: .81rem;
+
+  padding: 5px 9px;
+
+  color: var(--ink);
+
+  background: #ffffff;
+
+  border: 1px solid var(--border-dark);
+  border-radius: 2px;
+
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.03);
+}
+
+select:hover,
+input[type="text"]:hover {
+  border-color: #96a5b5;
+}
+
+select:focus,
+input[type="text"]:focus {
+  outline: 2px solid rgba(28,79,143,.18);
+  outline-offset: 1px;
+
+  border-color: var(--gov-blue-mid);
+}
+
+/* ============================================================
+   CHART AREA
+   ============================================================ */
+
+.chart {
+  padding:
+    17px
+    18px
+    8px;
+
+  background: #ffffff;
+}
+
+.chart svg {
+  display: block;
+
+  width: 100%;
+  height: auto;
+}
+
+.chart .axis {
+  stroke: #9ca8b3;
+  stroke-width: 1;
+}
+
+.chart .grid-line {
+  stroke: #e8edf2;
+  stroke-width: 1;
+}
+
+.chart .series {
+  fill: none;
+
+  stroke: var(--gov-blue);
+
+  stroke-width: 2.2;
+}
+
+.chart .point {
+  fill: var(--gov-blue);
+}
+
+.chart .bar {
+  fill: var(--gov-blue-mid);
+}
+
+.chart .bar.cpi {
+  fill: var(--saffron);
+}
+
+.chart text {
+  font-family:
+    "Segoe UI",
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 11px;
+
+  fill: #687582;
+}
+
+.chart text.value {
+  fill: #45515d;
+
+  font-size: 10px;
+
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.gov-footer {
+  margin-top: 30px;
+
+  border-top: 4px solid var(--gov-blue);
+}
+
 .gov-footer .links {
-  background: var(--panel); border-top: 1px solid var(--line);
-  padding: 14px 32px; font-size: .78rem;
-  display: flex; gap: 24px; flex-wrap: wrap;
+  background: #ffffff;
+
+  border-top: 1px solid var(--border);
+
+  padding:
+    13px
+    34px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 22px;
+
+  flex-wrap: wrap;
+
+  font-size: .75rem;
 }
-.gov-footer .links a { color: var(--ink-soft); text-decoration: none; }
-.gov-footer .links a:hover { color: var(--navy); text-decoration: underline; }
+
+.gov-footer .links a {
+  color: var(--gov-blue);
+
+  text-decoration: none;
+}
+
+.gov-footer .links a:hover {
+  color: var(--gov-blue-dark);
+  text-decoration: underline;
+}
+
 .gov-footer .attribution {
-  background: var(--navy-deep); color: #b9c6da;
-  padding: 20px 32px; font-size: .76rem; line-height: 1.65;
+  background: var(--gov-blue-dark);
+
+  color: #c8d4e2;
+
+  padding:
+    19px
+    34px;
+
+  font-size: .74rem;
+
+  line-height: 1.65;
 }
-.gov-footer .attribution strong { color: #fff; }
-.gov-footer .attribution code { background: rgba(255,255,255,.1); color: #dbe6f5; }
-.gov-footer .attribution .row { margin-bottom: 5px; max-width: 1000px; }
+
+.gov-footer .attribution strong {
+  color: #ffffff;
+}
+
+.gov-footer .attribution code {
+  background: rgba(255,255,255,.08);
+
+  border-color: rgba(255,255,255,.12);
+
+  color: #e0e9f3;
+}
+
+.gov-footer .attribution .row {
+  margin-bottom: 5px;
+
+  max-width: 1050px;
+}
+
 .gov-footer .disclaimer {
-  background: #0d1f3d; color: #8ea3c0;
-  padding: 11px 32px; font-size: .72rem;
+  background: var(--gov-blue-deep);
+
+  color: #91a5bb;
+
+  padding:
+    10px
+    34px;
+
+  font-size: .69rem;
+
+  line-height: 1.55;
+
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+  .topbar {
+    padding: 0 18px;
+  }
+
+  .masthead {
+    padding: 16px 18px;
+  }
+
+  .masthead .system {
+    width: 100%;
+    margin-left: 68px;
+    text-align: left;
+  }
+
+  nav.primary {
+    padding: 0 18px;
+  }
+
+  nav.primary a {
+    padding: 0 13px;
+  }
+
+  main {
+    padding:
+      16px
+      18px
+      46px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .stat:last-child {
+    border-bottom: 0;
+  }
+
+  .gov-footer .links,
+  .gov-footer .attribution,
+  .gov-footer .disclaimer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+@media (max-width: 620px) {
+
+  .topbar {
+    min-height: auto;
+
+    padding:
+      7px
+      14px;
+
+    gap: 8px 13px;
+  }
+
+  .topbar .spacer {
+    display: none;
+  }
+
+  .masthead {
+    align-items: flex-start;
+
+    padding:
+      14px;
+  }
+
+  .masthead .mark {
+    width: 45px;
+    height: 45px;
+  }
+
+  .masthead .english {
+    font-size: .95rem;
+  }
+
+  .masthead .system {
+    margin-left: 61px;
+  }
+
+  nav.primary {
+    padding: 0;
+  }
+
+  nav.primary a {
+    min-height: 41px;
+
+    padding:
+      0
+      11px;
+
+    font-size: .74rem;
+  }
+
+  main {
+    padding:
+      12px
+      12px
+      40px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat {
+    border-right: 0;
+
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat:last-child {
+    border-bottom: 0;
+  }
+
+  section > .body {
+    padding:
+      13px;
+  }
+
+  /*
+     Preserve horizontal table behaviour instead
+     of destroying statistical tables on phones.
+  */
+  table {
+    min-width: 680px;
+  }
+
+  section {
+    overflow-x: auto;
+  }
+
+  section > h2 {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+
+@media print {
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .topbar,
+  nav.primary {
+    position: static;
+  }
+
+  .topbar,
+  nav.primary {
+    box-shadow: none;
+  }
+
+  .topbar {
+    background: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #999999;
+  }
+
+  nav.primary {
+    background: #ffffff;
+    border-bottom: 2px solid #000000;
+  }
+
+  nav.primary a {
+    color: #000000;
+  }
+
+  .masthead {
+    border-bottom: 1px solid #999999;
+  }
+
+  .masthead .english,
+  .masthead .system .name,
+  section > h2 {
+    color: #000000;
+  }
+
+  section,
+  .grid,
+  .stat {
+    box-shadow: none;
+  }
+
+  .gov-footer .attribution,
+  .gov-footer .disclaimer {
+    background: #ffffff;
+    color: #000000;
+    border-top: 1px solid #999999;
+  }
 }

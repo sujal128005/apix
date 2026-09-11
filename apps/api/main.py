@@ -60,7 +60,15 @@ ALLOWED_ORIGINS = [
     for origin in os.environ.get("APIX_CORS_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
     if origin.strip()
 ]
-RATE_LIMIT_PER_MINUTE = int(os.environ.get("APIX_RATE_LIMIT_PER_MINUTE", "120"))
+# 600/min. Each dashboard page makes roughly eight API calls, so a reader
+# refreshing a few times must not trip this. A limiter that blocks normal use is
+# not protecting anything - it is a bug that looks like a security control.
+RATE_LIMIT_PER_MINUTE = int(os.environ.get("APIX_RATE_LIMIT_PER_MINUTE", "600"))
+
+# Static assets and liveness checks are exempt. They are cheap, cacheable and
+# not what a limiter exists to protect; counting them means a page reload can
+# lock a reader out of the site.
+RATE_LIMIT_EXEMPT_PREFIXES = ("/static/", "/favicon", "/api/v1/health")
 
 app = FastAPI(
     title="APIx — Real-time Airfare Price Index",
@@ -98,6 +106,11 @@ async def rate_limit_and_secure_headers(request: Request, call_next: Any) -> Res
     be wrong, and a limiter that quietly does less than advertised is worse than
     none.
     """
+    path = request.url.path
+    if path.startswith(RATE_LIMIT_EXEMPT_PREFIXES):
+        response: Response = await call_next(request)
+        return _secure(response)
+
     client = request.client.host if request.client else "unknown"
     now = time.monotonic()
     window = _requests[client]
@@ -120,13 +133,17 @@ async def rate_limit_and_secure_headers(request: Request, call_next: Any) -> Res
         )
     window.append(now)
 
-    response: Response = await call_next(request)
+    return _secure(await call_next(request))
+
+
+def _secure(response: Response) -> Response:
+    """Security headers, applied to every response including static assets."""
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
-    # Inline styles and scripts are used by the dashboard pages, so 'unsafe-inline'
-    # is required; no remote origin is permitted, which is the property that
-    # matters here - every asset is served by this process.
+    # Inline styles and scripts are used by the dashboard pages, so
+    # 'unsafe-inline' is required; no remote origin is permitted, which is the
+    # property that matters - every asset is served by this process.
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; img-src 'self' data:; "
@@ -1116,6 +1133,17 @@ def backtest() -> dict[str, Any]:
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> Response:
+        """A tiny inline mark, so the browser stops asking and the log stays readable."""
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+            '<rect width="32" height="32" fill="#1b3d6d"/>'
+            '<text x="16" y="22" font-family="sans-serif" font-size="15" '
+            'font-weight="bold" fill="#ffffff" text-anchor="middle">A</text></svg>'
+        )
+        return Response(content=svg, media_type="image/svg+xml")
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:

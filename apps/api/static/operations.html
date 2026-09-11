@@ -9,7 +9,7 @@
 <body>
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <div class="banner">
     <strong>Operations console.</strong>
     This page answers a different question from the public dashboard, for a
@@ -53,15 +53,11 @@
   </section>
 </main>
 
-<footer>
-  Freshness thresholds and alert rules are defined in
-  <code>/api/v1/operations</code>. A figure with no threshold beside it leaves
-  every reader to invent their own.
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/operations");
+initChrome("/operations", document.body.dataset.updated);
 
 const FRESHNESS_TAG = {CURRENT: "live", STALE: "sim", OVERDUE: "stop", NO_DATA: "stop"};
 
@@ -124,6 +120,16 @@ const FRESHNESS_TAG = {CURRENT: "live", STALE: "sim", OVERDUE: "stop", NO_DATA: 
     {label: "Share", num: true, render: x => (x[1] / total * 100).toFixed(1) + "%"},
   ], mix);
 })();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>

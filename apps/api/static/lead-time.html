@@ -9,7 +9,7 @@
 <body>
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <div class="banner">
     <strong>This is a price profile, not an elasticity.</strong>
     No causal elasticity is estimated. What is shown is the observed fare level at
@@ -48,15 +48,11 @@
   </section>
 </main>
 
-<footer>
-  Fare levels are the arithmetic mean of accepted observations on the stated date.
-  Index construction uses the geometric mean (Jevons) &mdash; see
-  <code>/api/v1/methodology</code>.
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/lead-time");
+initChrome("/lead-time", document.body.dataset.updated);
 
 async function load(route) {
   const r = await get("/api/v1/lead-time-profile" + (route ? "?route=" + route : ""));
@@ -114,6 +110,16 @@ async function load(route) {
   select.addEventListener("change", () => load(select.value));
   await load("");
 })();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>

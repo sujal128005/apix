@@ -9,7 +9,7 @@
 <body>
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <section>
     <h2>Route explorer</h2>
     <div class="body">
@@ -44,15 +44,11 @@
   </section>
 </main>
 
-<footer>
-  Every figure is traceable to an individual fare quote, its source and its
-  collection timestamp. Methodology and labelled assumptions:
-  <code>/api/v1/methodology</code>
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/routes");
+initChrome("/routes", document.body.dataset.updated);
 
 async function loadRoute(code) {
   const [detail, profile] = await Promise.all([
@@ -118,6 +114,16 @@ async function loadRoute(code) {
   else document.getElementById("chart").innerHTML =
     '<div class="empty">No route indices computed yet. Run scripts/run_demo_pipeline.py.</div>';
 })();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>

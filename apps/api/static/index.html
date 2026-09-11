@@ -10,7 +10,7 @@
 
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <div id="banner"></div>
 
   <div class="grid" id="stats"></div>
@@ -53,15 +53,11 @@
   </section>
 </main>
 
-<footer>
-  APIx prototype · Every figure on this page is traceable to an individual fare quote,
-  its source and its collection timestamp. Methodology and labelled assumptions:
-  <code>/api/v1/methodology</code>
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/");
+initChrome("/", document.body.dataset.updated);
 async function load() {
   let latest;
   try { latest = await get("/api/v1/index/latest"); }
@@ -192,6 +188,16 @@ async function load() {
 }
 
 load();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>

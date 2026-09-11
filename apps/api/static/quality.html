@@ -9,7 +9,7 @@
 <body>
 <div id="chrome"></div>
 
-<main>
+<main id="main">
   <div class="banner">
     <strong>This page reports rejections, not just successes.</strong>
     The counts that matter are the outliers discarded and the observations imputed.
@@ -69,14 +69,11 @@
   </section>
 </main>
 
-<footer>
-  Trace any single observation through its full lineage at
-  <code>/api/v1/provenance/{quote_id}</code>.
-</footer>
+<div id="gov-footer"></div>
 
 <script src="/static/apix.js"></script>
 <script>
-document.getElementById("chrome").innerHTML = masthead("/quality");
+initChrome("/quality", document.body.dataset.updated);
 
 function countTable(obj, label) {
   const total = Object.values(obj).reduce((a, b) => a + b, 0);
@@ -129,6 +126,16 @@ function countTable(obj, label) {
     d.daily.map(x => ({x: x.date.slice(5), y: x.quotes})),
     {format: v => Math.round(v).toLocaleString("en-IN")});
 })();
+
+// The footer's "last updated" is the API's as_of, not a date typed into HTML.
+// A stale hardcoded timestamp on a statistics portal is worse than none.
+get("/api/v1/health").then(() => get("/api/v1/index/latest"))
+  .then(r => {
+    const slot = document.getElementById("gov-footer");
+    if (slot) slot.innerHTML = govFooter(
+      (r.meta.as_of || "").replace("T", " ").slice(0, 19) + " UTC");
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>
