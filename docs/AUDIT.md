@@ -24,7 +24,7 @@ is not, or cannot be as specified, that is stated plainly rather than softened.
 | A1 | Multi-source scraping engine, Python, scheduled | **Met** | `packages/collector/` — adapter contract, runner, retry policy, and `scheduler.py`: a daily APScheduler job running in IST, one instance at a time, missed runs coalesced | `/operations` |
 | A2 | Handle JS, anti-bot, sessions **while complying with robots.txt and ToS** | **Met, with a stated reading** | `packages/compliance/` — six-check gate, capability token (ADR-018), fail-closed robots | `/operations` shows refusals |
 | A3 | Cleaned, de-duplicated fare DB with full metadata | **Met** | `raw_quote` → `normalised_quote`, 22 tables, lineage across 7 tables | `/api/v1/provenance/{id}` |
-| A4 | City-pair basket from DGCA passenger traffic | **NOT MET** | A weight engine exists and enforces evidence provenance, but the weights themselves are **equal**, not derived from passenger traffic. Labelling the gap is not closing it — see §C1 | `/routes` shows the rung |
+| A4 | City-pair basket from DGCA passenger traffic | **NOT MET, materially improved** | Weights now derive from **AAI airport throughput FY2024-25** via a gravity proxy (evidence rung 3), not equal weighting. Still not what the requirement asks: airport throughput is not city-pair traffic, and AAI is not DGCA — see §C1 | `/routes` shows the rung |
 | A5 | T+1, T+7, T+15, T+30, T+45 windows | **Exceeded** | Six buckets — **T+21 added**, CPI 2024's actual domestic window | `/lead-time` |
 | A6 | Outlier removal, missing values, sold-out handling | **Met** | MAD screen, missingness taxonomy, imputation per ADR-011 | `/quality` — 3.91% rejection |
 | A7 | Separate base fare, taxes, UDF, convenience fee | **Met** | `fare_component`, `component_confidence` | `/quality` — 80% complete |
@@ -108,8 +108,33 @@ administrative indicators in that setting. It does not authorise passenger
 counts as route weights for a domestic-airfare city-pair basket. The inference
 was ours; the report does not grant it.
 
-**Current position:** route weighting is unresolved. The implementation is an
-analytical demonstration, not a national weighting scheme.
+**Current position (12 September 2026): improved from rung 4 to rung 3.**
+
+Weights are now derived from AAI airport passenger throughput for FY 2024-25 via
+a gravity proxy — a city pair's traffic taken as proportional to the product of
+its two airports' throughput. Delhi–Mumbai receives 11.18% per direction against
+the 5% it got under equal weighting.
+
+**One independent check.** IATA's *World Air Transport Statistics 2024* records
+Mumbai–Delhi as the **7th busiest airport pair in the world**, carrying 5.9
+million passengers in 2024. The proxy ranks it first in the basket, which that
+observation supports. A single corroborating datapoint is a weak check, but it
+is a check, and it is more than equal weighting had.
+
+**What is still wrong with it:**
+
+- **Airport throughput is not city-pair traffic.** A busy airport is busy across
+  all its routes; the product says nothing about flows between these two cities.
+- **The figures are total passengers, not domestic.** Delhi and Mumbai carry
+  large international volumes, so the proxy overstates them. Applying an invented
+  domestic share would be a worse error than a labelled one.
+- **The source is secondary.** Wikipedia citing AAI, corroborated by two other
+  outlets reporting identical figures. AAI's own publication should replace it.
+- **AAI is not DGCA**, which is what the requirement names.
+
+So A4 remains **not met**. It is now a labelled proxy derived from real traffic
+data rather than an arbitrary one, which is a materially better position, but
+"better" is not "met".
 
 ---
 

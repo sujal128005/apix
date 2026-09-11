@@ -114,3 +114,65 @@ def test_weights_are_deterministic() -> None:
     assert [(c.route_code, c.weight) for c in first.candidates] == [
         (c.route_code, c.weight) for c in second.candidates
     ]
+
+
+# -- rung 3: airport-throughput proxy -------------------------------------
+
+
+def test_airport_throughput_weights_rank_busy_routes_higher() -> None:
+    """The point of leaving rung 4 behind.
+
+    Under equal weights a thin regional route moves the index as much as
+    Delhi-Mumbai. That is not a defensible approximation of a national airfare
+    index, however clearly it is labelled.
+    """
+    from pipeline.weights import build_from_airport_throughput
+
+    traffic = {"DEL": 79_259_890, "BOM": 55_122_422, "BLR": 41_875_620, "GAU": 6_160_157}
+    ws = build_from_airport_throughput(
+        traffic, ["DEL-BOM", "DEL-BLR", "DEL-GAU"],
+        version="t", evidence_ref="AAI FY2024-25, gravity proxy",
+    )
+
+    weights = {c.route_code: c.weight for c in ws.candidates}
+    assert weights["DEL-BOM"] > weights["DEL-BLR"] > weights["DEL-GAU"]
+    assert ws.total == Decimal("1.00000000")
+
+
+def test_the_throughput_proxy_is_rung_three_not_rung_one() -> None:
+    """Airport throughput is not city-pair traffic, and must not claim to be."""
+    from pipeline.weights import build_from_airport_throughput
+
+    ws = build_from_airport_throughput(
+        {"DEL": 100, "BOM": 50}, ["DEL-BOM"], version="t", evidence_ref="proxy",
+    )
+    assert all(c.evidence_rung == 3 for c in ws.candidates)
+    assert ws.any_proxy is True
+
+
+def test_a_route_with_no_throughput_data_is_refused() -> None:
+    """Weighting a route from airports we have no figures for would be invention."""
+    from pipeline.weights import WeightValidationError, build_from_airport_throughput
+
+    with pytest.raises(WeightValidationError, match="no throughput figure"):
+        build_from_airport_throughput(
+            {"DEL": 100}, ["DEL-BOM"], version="t", evidence_ref="proxy",
+        )
+
+
+def test_the_shipped_traffic_reference_covers_every_basket_airport() -> None:
+    """The reference file must not silently drift from the seeded basket."""
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "data" / "reference" / "airport_traffic.json"
+    if not path.exists():
+        pytest.skip("airport traffic reference not present")
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for code in ("DEL", "BOM", "BLR", "MAA", "CCU", "HYD", "AMD", "COK", "PNQ", "GAU"):
+        assert code in payload["airports"], f"{code} missing from the traffic reference"
+
+    # Its limitations must travel with it.
+    assert "SECONDARY" in payload["_source_quality"]
+    assert "domestic plus international" in payload["_known_distortion"]

@@ -40,6 +40,7 @@ __all__ = [
     "WeightSet",
     "WeightValidationError",
     "build_equal_weights",
+    "build_from_airport_throughput",
     "build_from_traffic",
     "validate_weight_set",
 ]
@@ -196,6 +197,56 @@ def build_from_traffic(
     )
     validate_weight_set(weight_set)
     return weight_set
+
+
+def build_from_airport_throughput(
+    airport_traffic: dict[str, int],
+    route_codes: list[str],
+    *,
+    version: str,
+    evidence_ref: str,
+) -> WeightSet:
+    """Route weights from a gravity proxy on airport throughput (rung 3).
+
+    A city pair's traffic is taken as proportional to the product of the two
+    airports' passenger throughput - the standard gravity form in transport
+    modelling. It is a **proxy**, and the rung says so.
+
+    Two distortions are inherent and must travel with the weights rather than
+    be silently corrected:
+
+    **Throughput is not city-pair traffic.** A busy airport is busy across all
+    its routes; the product says nothing about how much of it flows between
+    these two cities specifically.
+
+    **The inputs are total passengers, not domestic.** Delhi and Mumbai carry
+    large international volumes, so this overstates them against a purely
+    domestic measure. Applying an invented domestic share would be a worse
+    error than a labelled one.
+
+    Better data replaces this without code changes: rung 1 city-pair volumes go
+    straight into :func:`build_from_traffic`.
+    """
+    missing = {
+        code
+        for route in route_codes
+        for code in route.split("-")
+        if code not in airport_traffic
+    }
+    if missing:
+        raise WeightValidationError(
+            f"no throughput figure for {sorted(missing)}; a route cannot be weighted "
+            "from airports we have no data for"
+        )
+
+    traffic = {
+        route: airport_traffic[route.split("-")[0]] * airport_traffic[route.split("-")[1]]
+        for route in route_codes
+    }
+    return build_from_traffic(
+        traffic, version=version, evidence_rung=int(EvidenceRung.AIRPORT_THROUGHPUT_PROXY),
+        evidence_ref=evidence_ref,
+    )
 
 
 def build_equal_weights(route_codes: list[str], *, version: str, reason: str) -> WeightSet:

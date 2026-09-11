@@ -22,6 +22,7 @@ correct order for those two events to happen in.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -45,7 +46,10 @@ from compliance.token import ComplianceToken
 from db.settings import DbSettings
 from pipeline.normalise import normalise_payload, score_quality
 from pipeline.orchestrator import compute_index_for_date
-from pipeline.weights import build_equal_weights
+from pipeline.weights import (
+    build_equal_weights,
+    build_from_airport_throughput,
+)
 from schemas.enums import (
     ImputationCode,
     MissingReason,
@@ -61,6 +65,8 @@ from schemas.models.reference import (
     SourceReview,
 )
 from schemas.models.versioning import RouteWeight, WeightSetVersion
+
+_REPO_DATA = Path(__file__).resolve().parents[1] / "data" / "reference"
 
 # A deterministic price path per route. Real airfares are volatile and
 # route-specific; a flat series would make the index look like it works when it
@@ -159,12 +165,33 @@ def ensure_weight_set(session: Session) -> WeightSetVersion:
         return existing
 
     routes = {r.code: r for r in session.execute(sa.select(Route)).scalars()}
-    reason = (
-        "Equal weights. Open item O-5 unresolved: no public DGCA per-city-pair "
-        "passenger-volume table was found, so no traffic-proportional weighting is "
-        "available. Replace with rung 1 or 2 weights when the data is obtained."
-    )
-    built = build_equal_weights(sorted(routes), version="2026.1-equal-rung4", reason=reason)
+
+    # Prefer a rung-3 airport-throughput proxy over rung-4 equal weights. Equal
+    # weighting lets a thin regional route move the index as much as Delhi-Mumbai,
+    # which is not a defensible approximation of a national airfare index. The
+    # proxy is still a proxy - the rung says so, and it is shown beside every
+    # weight in the UI - but it is derived from real traffic data.
+    traffic_file = _REPO_DATA / "airport_traffic.json"
+    if traffic_file.exists():
+        payload = json.loads(traffic_file.read_text(encoding="utf-8"))
+        built = build_from_airport_throughput(
+            payload["airports"],
+            sorted(routes),
+            version="2026.2-airport-proxy-rung3",
+            evidence_ref=(
+                f"Gravity proxy on AAI airport throughput, {payload['period']}. "
+                f"{payload['_source_quality'][:90]}... "
+                "Overstates Delhi and Mumbai: figures include international traffic."
+            ),
+        )
+    else:
+        built = build_equal_weights(
+            sorted(routes), version="2026.1-equal-rung4",
+            reason=(
+                "Equal weights. No airport-traffic reference file present, and open "
+                "item O-5 (public DGCA city-pair volumes) is unresolved."
+            ),
+        )
 
     version = WeightSetVersion(
         version=built.version, effective_from=date.today(), source_note=built.note

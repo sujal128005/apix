@@ -1,0 +1,27 @@
+{
+  "_comment": "Airport passenger throughput, FY 2024-25, used to derive route weights at evidence rung 3 (airport-throughput proxy). This is NOT city-pair traffic, which is what rung 1 would require and which no public DGCA table provides.",
+  "_source_quality": "SECONDARY. These figures are reported by Wikipedia's 'List of busiest airports in India' citing AAI, and corroborated independently by bharatspeaks.com and aviationjeta.com, which report identical values for FY2024-25. The primary source is AAI's own traffic statistics, which should be obtained and substituted before any publication. Treat as rung 3, not rung 1.",
+  "_known_distortion": "These are TOTAL passengers, domestic plus international. APIx collects domestic routes only. Delhi and Mumbai carry large international volumes, so this proxy overstates them relative to a purely domestic measure. Stated rather than silently corrected, because applying an invented domestic/international split would be a worse error than a labelled one.",
+  "period": "FY 2024-25 (April 2024 - March 2025)",
+  "unit": "total passengers (domestic + international)",
+  "retrieved_at": "2026-09-12",
+  "airports": {
+    "DEL": 79259890,
+    "BOM": 55122422,
+    "BLR": 41875620,
+    "HYD": 29482396,
+    "MAA": 22411290,
+    "CCU": 21831118,
+    "AMD": 13427697,
+    "COK": 11140778,
+    "PNQ": 10457694,
+    "GAU": 6160157
+  },
+  "route_level_check": {
+    "_comment": "One genuine route-level observation, used to test the proxy rather than to build it.",
+    "pair": "DEL-BOM",
+    "passengers_2024": 5900000,
+    "source": "IATA World Air Transport Statistics 2024: Mumbai-Delhi was the 7th busiest airport pair globally, carrying 5.9 million passengers in 2024",
+    "note": "Bidirectional, calendar year 2024, all carriers."
+  }
+}

@@ -32,6 +32,7 @@ from pipeline.weights import (
     WeightSet,
     WeightValidationError,
     build_equal_weights,
+    build_from_airport_throughput,
     build_from_traffic,
     validate_weight_set,
 )
@@ -53,6 +54,7 @@ __all__ = [
     "WeightSet",
     "WeightValidationError",
     "build_equal_weights",
+    "build_from_airport_throughput",
     "build_from_traffic",
     "build_matched_pairs",
     "compare_movements",

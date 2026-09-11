@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`824 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`828 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 824 passed
+.venv\Scripts\pytest -q                           # expect 828 passed
 ```
 
 Then populate it and start the site:
@@ -180,7 +180,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**824 tests** — 417 unit, 407 integration. The count is not the point; what it
+**828 tests** — 421 unit, 407 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |
@@ -232,7 +232,7 @@ Stated here rather than left to be discovered.
 | Limitation | Status |
 |---|---|
 | No live transacted-price source; all observations are `SIMULATED_DEMO` | **Amadeus Self-Service was decommissioned 17 Jul 2026**; Tier 2 is now the path |
-| **Route weighting is unresolved.** The current basket is equal-weighted and is an analytical demonstration, not a nationally representative weighting scheme | Open item O-5 — **the project's largest weakness** |
+| **Route weighting is a proxy.** Derived from AAI airport throughput (evidence rung 3), not DGCA city-pair traffic. Overstates Delhi and Mumbai, whose figures include international passengers | Open item O-5 — still the largest weakness |
 | No headline index is ever published | By design, while data is simulated |
 | Index **levels** not comparable with CPI — only movements | Permanent, by construction |
 | Airfare *item* weight unknown; Transport's 8.796 is not a stand-in | Needs Annexure 5.3 |
