@@ -1,213 +1,255 @@
 # APIx — Real-time Airfare Price Index for India
 
-SIH 2026, Problem Statement 26056. A daily airfare price index built to augment
-MoSPI's Consumer Price Index, using MoSPI's own published CPI 2024 formulae.
+**Smart India Hackathon 2026 · Problem Statement 26056**
+**Ministry of Statistics and Programme Implementation · Data Informatics & Innovation Division**
 
-**This repository is at Phase 3: the data layer and its contracts.** There is no
-collector, no index engine, no API and no UI yet. What exists is the schema every
-later phase is built on, and the tests that prove it holds.
+A daily airfare price index for India, computed with MoSPI's own published CPI 2024
+formulae and built to augment the Consumer Price Index.
 
----
-
-## Setup
-
-Five commands. On Windows use `py -3.12`; on Linux or macOS use `python3.12`.
-
-```bash
-docker compose up -d                      # 1. PostgreSQL 16 on 127.0.0.1:5433
-py -3.12 -m venv .venv                    # 2. Python 3.12 virtual environment
-.venv/Scripts/pip install -e ".[dev]"     # 3. install APIx and its dev tools
-.venv/Scripts/python scripts/init_db.py   # 4. create, migrate and seed the database
-.venv/Scripts/pytest                      # 5. run the suite
-```
-
-On Linux or macOS, replace `.venv/Scripts/` with `.venv/bin/`.
-
-`.env` is optional against the bundled container: `db/settings.py` falls back to
-the same local development values `docker-compose.yml` uses. For anything else,
-copy `.env.example` to `.env` and fill it in. `.env.example` is committed with no
-values in it, and `.env` is git-ignored.
-
-The container publishes **5433**, not 5432, so APIx does not collide with another
-PostgreSQL already bound to the conventional port. Override with `APIX_DB_PORT`.
-
-### Migrations on their own
-
-```bash
-.venv/Scripts/alembic -c db/alembic.ini upgrade head
-.venv/Scripts/alembic -c db/alembic.ini downgrade base
-```
-
-Migrations bootstrap as the superuser because revision 0003 creates two
-cluster-global roles. After that they can run as `apix_migrator`. The
-application always connects as `apix_app`.
-
-### Checks
-
-```bash
-.venv/Scripts/ruff check .
-.venv/Scripts/mypy --strict packages/schemas
-.venv/Scripts/pytest -m "constraint or adversarial"   # just the barrier tests
-```
+`794 tests passing · ruff clean · mypy --strict clean`
 
 ---
 
-## What is in the database after setup
+## Why this exists
 
-| | |
+MoSPI's CPI 2024 series already collects airfares from online platforms, at a
+**21-day advance-purchase window**, priced **weekly**. Indian airfares do not
+behave weekly. On the routes in this basket, booking tomorrow costs **210% of
+the 21-day fare**; booking six weeks out costs **92%**.
+
+APIx is the collection and index layer that makes that visible: daily, route-level,
+across six booking horizons, with every published number traceable to an individual
+fare quote.
+
+It is not a replacement for CPI. It computes the same index MoSPI computes, using
+the same formulae, at higher frequency and finer granularity.
+
+---
+
+## Quick start
+
+Five commands. Windows shown; on Linux or macOS use `python3.12` and replace
+`.venv/Scripts/` with `.venv/bin/`.
+
+```powershell
+docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5433
+py -3.12 -m venv .venv                            # Python 3.12 only
+.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\python scripts\init_db.py           # migrate and seed
+.venv\Scripts\pytest -q                           # expect 794 passed
+```
+
+Then populate it and start the site:
+
+```powershell
+$env:APIX_CONTACT_URL="https://github.com/your-name/apix"
+$env:PYTHONPATH="apps"
+.venv\Scripts\python scripts\run_demo_pipeline.py --days 21 --reset
+.venv\Scripts\python -m uvicorn api.main:app --port 8000
+```
+
+Open **http://127.0.0.1:8000**.
+
+`APIX_CONTACT_URL` is required. The compliance gate refuses to crawl anonymously:
+every request must carry a contact address a site operator could reach. Without it
+you get an explicit refusal rather than silent zeros.
+
+---
+
+## What you can look at
+
+| Page | What it answers |
 |---|---|
-| 10 airports | DEL BOM BLR MAA CCU HYD AMD COK PNQ GAU |
-| 20 routes | 10 city pairs, both directions (ADR-017) |
-| 6 lead-time buckets | T1 T7 T15 **T21** T30 T45 |
-| 18 sources | all disabled |
-| 1 methodology version | 1.0.0 |
-| **0 route weights** | correct — see below |
-| **0 base periods** | correct — see below |
+| `/` | Current index, route movements, benchmark, source compliance |
+| `/routes` | Per-route index history, basket weight and the evidence behind it |
+| `/lead-time` | Fare by booking horizon, T+21 marked as the CPI-comparable window |
+| `/quality` | Outlier rejections, imputation rate, decomposition completeness |
+| `/methodology` | Every formula cited to source; every assumption labelled |
+| `/operations` | Pipeline health, source status, collection runs, alerts |
+| `/api/docs` | OpenAPI documentation |
 
 ---
 
-## Things that look like bugs and are not
+## Methodology
 
-**`route_weight` is empty.** Weight evidence (open item O-5) is unresolved. A
-placeholder weight would be indistinguishable from a sourced one in every chart,
-API response and export downstream, so no row is written until real evidence
-exists. Tests build their own weight sets, named `test_weight_set_*`.
+APIx does not invent an index formula. It implements what MoSPI specifies for
+CPI 2024, sourced from the **Expert Group Report on Comprehensive Updation of the
+Consumer Price Index** (January 2026, Price Statistics Division, NSO).
 
-**Every source is disabled.** Sources are opt-in, never opt-out. The six Tier-4
-OTAs are seeded so they are visible and auditable in the compliance register, and
-they stay disabled: their robots.txt disallows automated flight-search
-collection. A source absent from the register cannot be *shown* as blocked; one
-present and disabled can be.
-
-**There are six lead-time buckets, not five.** T+21 exists because MoSPI's CPI
-2024 collects domestic airfare at a 21-day advance-purchase window (Expert Group
-Report §3.9), which makes it the only bucket directly comparable to the official
-index.
-
-**λ is the same for every bucket.** A labelled prototype assumption, not a
-finding: no public Indian booking-lead-time distribution was located. It is
-recorded in the data so the assumption is visible rather than buried in code.
-
-**Elementary strata are geometric and everything above them is arithmetic.**
-Jevons short (chain-base) below, Young / modified Laspeyres above. That asymmetry
-is MoSPI's deliberate structure, not an inconsistency.
-
-**`airport.icao` is NULL for all ten rows.** The build brief's seed
-specification does not supply ICAO codes, and anything it does not specify stays
-NULL. The same applies to `source.base_url`: the URLs are unverified open items
-(O-4), so all eighteen are NULL.
-
-**`base_period` is empty.** The reference period an index is 100 against is
-established in Phase 9 from real collection dates. Inventing one now would put a
-fabricated reference point underneath every index value ever published — the same
-failure mode as a placeholder route weight.
-
-**`base_period` is the one versioned definition that is *not* append-only.** It
-is a definition, not an observation, and Phase 9 may refine it before anything is
-published. Reproducibility is protected by the reference rather than the
-definition: `index_observation` is append-only, so a published row can never be
-repointed at a different base period.
-
-**`adapter_key` is not one-to-one with `code`.** One adapter serves a whole
-family: five airline tariff sheets share `airline_tariff_doc_v1`, five airline
-sites share `airline_web_v1`, six OTAs share `ota_web_v1`.
-
----
-
-## The five barriers
-
-Each is enforced by PostgreSQL, and each has a test that provokes the failure.
-
-| | Barrier | Where it lives |
-|---|---|---|
-| **C1** | A weight cannot exist without stating its evidence | `NOT NULL` on `route_weight.evidence_rung` |
-| **C2** | Weights sum to 1 ± 1e-9 per weight set | deferred constraint trigger, fires at `COMMIT` |
-| **C3** | 13 append-only tables cannot be updated or deleted | `UPDATE`/`DELETE` revoked from `apix_app` |
-| **C4** | A fare is positive and always says where it came from | `CHECK` + `NOT NULL` |
-| **C5** | `SIMULATED_DEMO` can never reach a headline index value | `BEFORE INSERT` triggers on `index_observation` and `index_contribution` |
-
-C5 fails closed. On a date where simulated demo quotes exist at all, no headline
-value can be written — whether or not the engine would in fact have selected
-them. Simulated data is a separate lineage, not a degraded form of live data.
-
-That costs nothing in practice: `LIVE` mode should contain no `SIMULATED_DEMO`
-quotes at all, and `OFFLINE_DEMO` mode runs on frozen previously-collected *real*
-data carrying `LIVE_COLLECTED` or `PUBLIC_HISTORICAL`. `SIMULATED_DEMO` is for
-development fixtures only, so the trigger never blocks a demo.
-
-A sixth barrier joined them in the Phase 3 review:
-`uq_index_observation_identity` is `UNIQUE NULLS NOT DISTINCT`, so two HEADLINE
-values for the same date and methodology version are impossible. Without it,
-`ref_id` and `bucket_id` being NULL on a headline row would let PostgreSQL treat
-the duplicates as distinct and break reproducibility.
-
----
-
-## Traceability
-
-The point of the schema is that a published number can be walked back to a single
-fare in **one query**:
+**Elementary level — Jevons short (chain-base):**
 
 ```
-index_observation (HEADLINE)
-  → index_contribution → route
-  → normalised_quote (route, bucket, collected_date)
-  → raw_quote → raw_response → collection_request → compliance_decision → source
-  → cleaning_event (every rule that touched the quote)
+I(t) = GM( p(t) / p(t-1) ) × I(t-1)
 ```
 
-The query, and the proof that it returns a fare's value, source, collection time,
-provenance and cleaning history, are in
-`tests/integration/test_lineage_traversal.py`.
+Matched pairs only: the same `(carrier, flight number, fare brand)` in both
+periods. Comparing "cheapest today" with "cheapest yesterday" would record a
+change of airline as a change of price.
+
+**Route and headline — Young / Modified Laspeyres**, the weighted arithmetic mean
+of lower-level indices.
+
+Geometric below, arithmetic above. That asymmetry is deliberate CPI structure: the
+report records that CPI 2024 moved house rent *from* weighted geometric *to*
+weighted arithmetic specifically to align it with every other item.
+
+| Decision | Source |
+|---|---|
+| Jevons short at elementary level | Expert Group Report §4.6.1 |
+| Young / Modified Laspeyres | Expert Group Report §4.6.2 |
+| 21-day domestic advance-purchase window | Expert Group Report §3.9 |
+| Impute and carry until reappearance; never redistribute weights | Expert Group Report §4.6.4 |
+| Passenger counts as proxy weights | Expert Group Report §4.6.3.3 |
+| Airfares collected from online platforms | MoSPI CPI 2024 FAQ, Q27 |
+| Comparator: item 294, COICOP 07.3.3.1.2.01, *domestic* | MoSPI open API, verified 7 Sep 2026 |
+| Outlier screening (MAD, k = 3.5) | **Ours.** MoSPI prescribes no outlier rule for airfare |
+
+Full detail at `/methodology` and in `docs/`.
 
 ---
 
-## Layout
+## Compliance
 
-```
-db/
-  alembic.ini            migrations config; the URL is never stored here
-  migrate.py             programmatic upgrade/downgrade
-  settings.py            connection settings, read from the environment
-  migrations/versions/
-    0001_initial_schema.py            21 tables, uuidv7(), route_undirected view
-    0002_constraint_triggers.py       C2 and C5
-    0003_roles_and_privileges.py      C3: apix_migrator and apix_app
-    0004_base_period_identity_key.py  base_period table; identity key made
-                                      NULLS NOT DISTINCT; strict travel-date check
-    0005_base_period_mutable.py       base_period is a definition, not an
-                                      observation, so it is not append-only
-  seeds/                 airports, routes, buckets, sources, methodology
-packages/schemas/
-  enums.py               controlled vocabularies, mirrored into CHECK constraints
-  uuid7.py               RFC 9562 UUIDv7, twin of the PL/pgSQL uuidv7()
-  hashing.py             collection_request.query_hash
-  models/                SQLAlchemy 2.0, one module per domain group
-  contracts/             Pydantic v2, one contract per table
-scripts/init_db.py       create, migrate, seed, report
-tests/
-  unit/                  enums, contracts, identifiers, the no-float scan
-  integration/           schema shape, migrations, C1–C5, adversarial, lineage
-  fixtures/              the golden day and the adversarial manifest
-```
+Collection is governed by a gate that runs before any adapter and cannot be
+bypassed.
+
+`ComplianceToken` requires a module-private sentinel to construct, so only the
+gate can mint one — and every network-touching function requires one. An adapter
+author cannot write a fetch that skips the gate, not because a rule forbids it
+but because the object cannot be built. A static scan over the source tree
+asserts there is no override flag, no permissive environment variable, and no
+second place that mints tokens.
+
+- `BLOCKED_ROBOTS` is terminal. No retry, no override.
+- robots.txt handling fails closed: 404 means allowed, but 403 on robots.txt
+  itself means disallow everything.
+- Crawl-delay floor of 5s even where a site permits faster.
+- Config overrides run one direction only — more conservative, never less.
+- The six OTAs named in the problem statement have adapters that are **built,
+  registered, and never executed**, because their terms disallow collection.
+
+Detail in `docs/scraping-compliance.md` and ADR-005, ADR-006, ADR-018, ADR-019.
 
 ---
 
-## Conventions that are not negotiable
+## Provenance
 
-- **Money is `Decimal` and `NUMERIC`.** Never float. Enforced by a test that
-  parses the source and fails on any `float` annotation or conversion.
-- **Timestamps are `TIMESTAMPTZ`, stored UTC.** IST is applied when rendering,
-  never in storage. The database is pinned to UTC by migration 0001, and the
-  contracts reject naive datetimes.
-- **Primary keys are UUIDv7.** Time-ordered, so rows read back in creation order.
-- **Corrections are new rows under a new version.** Never an edit. That applies
-  to the migrations too: revision 0004 amends 0001 rather than rewriting it.
+Every observation carries a non-null provenance label, enforced by database
+constraint. A trigger refuses to compute a headline index for any date carrying
+`SIMULATED_DEMO` observations, so development data cannot become a published
+statistic whatever happens upstream.
+
+Any single number can be walked back to the fare that produced it:
+
+```
+GET /api/v1/provenance/{quote_id}
+```
+
+returns the observation, its raw quote, the raw response and its hash, the
+collection request, the compliance decision that permitted it, and the source.
 
 ---
 
-## Open items
+## Architecture
 
-`docs/deferred.md` records work identified but deliberately not built here —
-currently the Phase 7 fuzzy near-duplicate requirement (D-1) and the pending
-nullability ruling on six columns (D-2).
+```
+source registry → compliance gate → adapters → raw storage
+               → normalisation → matched pairs → index engine
+               → API → dashboard
+```
+
+| Layer | Package |
+|---|---|
+| Schema, models, enums | `packages/schemas` |
+| Compliance gate, token, robots | `packages/compliance` |
+| Adapter contract, runner, TLS ladder | `packages/collector` |
+| Normalisation, imputation, weights, orchestrator, backtest | `packages/pipeline` |
+| Jevons and Young, pure and Decimal-exact | `packages/index_engine` |
+| API and dashboard | `apps/api` |
+
+**Stack:** Python 3.12, PostgreSQL 16, SQLAlchemy 2.0, Alembic, Pydantic v2,
+FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
+served by this process, so a demo cannot fail because a stylesheet did not
+download.
+
+Money is `Decimal` end to end. A test scans the source tree and fails the build on
+any `float` in a money path; it caught five genuine cases during development.
+
+---
+
+## Validation
+
+`GET /api/v1/backtest` — three tiers, per ADR-015.
+
+The problem statement asks for back-testing against *publicly available DGCA
+monthly average-fare data*. **Research could not establish that such a series
+exists.** DGCA's Tariff Monitoring Unit covers 78 routes monthly, but its output
+surfaces through parliamentary replies rather than as a downloadable time series.
+
+APIx substitutes the **official CPI 2024 domestic-airfare index** — item 294,
+COICOP 07.3.3.1.2.01, an exact scope match rather than a proxy — retrieved from
+MoSPI's own API. Comparison is on **movements**, never levels, because APIx uses
+its own base period rather than 2024 = 100.
+
+The current result is **zero overlapping months**, and the endpoint reports that
+shortfall instead of computing an error metric over an overlap that does not
+exist. It resolves with collection time, not with code.
+
+---
+
+## Known limitations
+
+Stated here rather than left to be discovered.
+
+| Limitation | Status |
+|---|---|
+| No live source; all observations are `SIMULATED_DEMO` | Open item O-3 |
+| Route weights are equal, **evidence rung 4** | Open item O-5 |
+| No headline index is ever published | By design, while data is simulated |
+| Index **levels** not comparable with CPI — only movements | Permanent, by construction |
+| Airfare *item* weight unknown; Transport's 8.796 is not a stand-in | Needs Annexure 5.3 |
+| Coverage: economy, one-way, direct, one adult, 20 routes | Constant-quality scope |
+| Amadeus adapter not live-verified | Open item O-3 |
+| Tariff-sheet URLs unresolved | Open item O-4 |
+| Rate limiter is per-process | Adequate for a prototype; documented |
+
+---
+
+## Repository
+
+```
+apps/api/              FastAPI application and dashboard
+packages/              schemas · compliance · collector · pipeline · index_engine
+db/migrations/         Alembic revisions
+scripts/               pipeline runner, MoSPI smoke tests, CPI series fetch
+tests/                 unit · integration · fixtures
+docs/                  AUDIT.md · DEMO-SCRIPT.md · adr/ · evidence/
+data/reference/        CPI item identity, benchmark series, robots snapshots
+```
+
+`docs/AUDIT.md` is the requirement-by-requirement traceability matrix.
+`docs/DEMO-SCRIPT.md` is the demo walkthrough.
+
+---
+
+## Scripts
+
+```powershell
+.venv\Scripts\python scripts\init_db.py                     # migrate and seed
+.venv\Scripts\python scripts\run_demo_pipeline.py --days 21 --reset
+.venv\Scripts\python scripts\smoke_mospi.py                 # verify MoSPI API reachability
+.venv\Scripts\python scripts\fetch_cpi_airfare_series.py    # refresh the benchmark
+```
+
+`--reset` needs migrator credentials, because index observations are append-only
+and `UPDATE`/`DELETE` are revoked from the application role. Clearing an audit
+trail is an administrative act and has the friction to match.
+
+---
+
+## Attribution
+
+Built for SIH 2026. CPI data is retrieved from MoSPI's open API at
+`api.mospi.gov.in` and is Government of India official statistics; APIx stores it
+with its source URL and retrieval timestamp, and never presents it as its own
+output.
