@@ -1,146 +1,250 @@
-/* APIx — shared visual system.
+/* APIx — visual system.
 
-   Institutional rather than decorative. The reference points are Indian
-   government statistical publications: dense tables, restrained colour, a
-   single accent, generous rules and no motion. Colour carries meaning here
-   (status, provenance, warning) and is never used for emphasis alone.
+   Modelled on the current MoSPI portal rather than older GoI templates: light
+   and airy, white cards with soft shadows and rounded corners, navy used as
+   text and accent rather than as filled blocks, generous whitespace, compact
+   type.
 
-   No web fonts, no CDN, no build step. A demo should not be able to fail
-   because a stylesheet did not download. */
+   The earlier version of this stylesheet used solid navy bars for every section
+   header and oversized type throughout. It read as heavy and dated next to the
+   real thing, which is lighter than one expects a government site to be.
+
+   No State Emblem: its display is restricted under the State Emblem of India
+   (Prohibition of Improper Use) Act, 2005, and this is a student project.
+   No web fonts, no CDN, no build step. */
 
 :root {
-  --ink:        #1a1a1a;
-  --ink-soft:   #4a4a4a;
-  --ink-faint:  #6e6e6e;
-  --rule:       #d4d0c8;
-  --rule-soft:  #e8e5df;
-  --page:       #f7f6f3;
+  --ink:        #1f2328;
+  --ink-soft:   #4a515a;
+  --ink-faint:  #78808a;
+
+  --line:       #e3e7ec;
+  --line-soft:  #eef1f5;
+
+  --page:       #f5f7fa;
   --panel:      #ffffff;
-  --navy:       #1c3a5e;
-  --navy-soft:  #eef2f7;
-  --gold:       #c8901e;
-  --ok:         #1e5e3a;
-  --warn:       #8a5a00;
-  --warn-bg:    #fdf6e3;
-  --stop:       #8a2020;
+
+  --navy:       #1a3d7c;
+  --navy-deep:  #12294f;
+  --navy-tint:  #eff4fb;
+  --accent:     #d97706;
+
+  --ok:         #15803d;
+  --ok-tint:    #f0fdf4;
+  --warn:       #a16207;
+  --warn-tint:  #fffbeb;
+  --stop:       #b91c1c;
+  --stop-tint:  #fef2f2;
+
+  --shadow:     0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  --shadow-lg:  0 2px 4px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.07);
+  --radius:     8px;
+
+  --font-scale: 1;
 }
 
 * { box-sizing: border-box; }
+html { font-size: calc(15px * var(--font-scale)); }
 
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* --- masthead and navigation ------------------------------------------- */
+/* --- accessibility strip ------------------------------------------------ */
 
-header.masthead {
-  background: var(--navy);
-  color: #fff;
-  padding: 14px 28px;
-  border-bottom: 3px solid var(--gold);
-}
-.masthead .org {
-  font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .85;
-}
-.masthead h1 { margin: 4px 0 2px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
-.masthead .sub { font-size: 13px; opacity: .8; }
-
-nav {
+.topbar {
   background: var(--panel);
-  border-bottom: 1px solid var(--rule);
-  padding: 0 28px;
-  display: flex; gap: 26px; flex-wrap: wrap;
-  font-size: 13.5px;
+  border-bottom: 1px solid var(--line);
+  font-size: .72rem;
+  padding: 5px 32px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  color: var(--ink-faint);
 }
-nav a {
-  color: var(--ink-soft); text-decoration: none;
-  padding: 11px 0; border-bottom: 2px solid transparent;
+.topbar .gov { font-weight: 600; color: var(--ink-soft); }
+.topbar .spacer { margin-left: auto; }
+.topbar a, .topbar button {
+  color: var(--ink-faint); text-decoration: none;
+  background: none; border: none; font: inherit; cursor: pointer; padding: 2px 3px;
 }
-nav a:hover { color: var(--navy); }
-nav a.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+.topbar a:hover, .topbar button:hover { color: var(--navy); }
+.topbar .sizer { display: inline-flex; gap: 3px; align-items: center; }
+.topbar .sizer button {
+  border: 1px solid var(--line); background: var(--panel);
+  border-radius: 4px; line-height: 1; padding: 3px 7px; font-size: .72rem;
+}
+.topbar .sizer button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
 
-main { padding: 22px 28px 60px; max-width: 1280px; }
+.skip-link { position: absolute; left: -9999px; background: var(--navy); color: #fff; padding: 8px 14px; z-index: 100; }
+.skip-link:focus { left: 8px; top: 8px; }
+
+/* --- masthead ----------------------------------------------------------- */
+
+.masthead {
+  background: var(--panel);
+  padding: 14px 32px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.masthead .mark {
+  width: 42px; height: 42px; flex: none;
+  border-radius: 50%; background: var(--navy);
+  display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
+}
+.masthead .hindi { font-size: .82rem; color: var(--ink-soft); line-height: 1.35; }
+.masthead .english {
+  font-size: .95rem; font-weight: 700; color: var(--navy); line-height: 1.35;
+}
+.masthead .division { font-size: .72rem; color: var(--ink-faint); }
+.masthead .system { margin-left: auto; text-align: right; }
+.masthead .system .name { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.masthead .system .ps { font-size: .72rem; color: var(--ink-faint); }
+
+/* --- navigation --------------------------------------------------------- */
+
+nav.primary {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0 32px;
+  display: flex; gap: 4px; flex-wrap: wrap;
+  font-size: .82rem;
+  position: sticky; top: 0; z-index: 20;
+  box-shadow: var(--shadow);
+}
+nav.primary a {
+  color: var(--ink-soft); text-decoration: none;
+  padding: 11px 14px; display: block;
+  border-bottom: 2px solid transparent;
+}
+nav.primary a:hover { color: var(--navy); background: var(--navy-tint); }
+nav.primary a.active { color: var(--navy); font-weight: 600; border-bottom-color: var(--accent); }
+
+main { padding: 22px 32px 56px; max-width: 1280px; }
 
 /* --- notices ------------------------------------------------------------ */
 
 .banner {
-  background: var(--warn-bg);
-  border: 1px solid #e0c98a;
-  border-left: 4px solid var(--gold);
-  padding: 12px 16px; margin-bottom: 22px; font-size: 13.5px;
+  background: var(--warn-tint);
+  border: 1px solid #f0e0b6;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 20px; font-size: .84rem;
+  color: var(--ink-soft);
 }
 .banner strong { color: var(--warn); }
 
-/* --- statistics --------------------------------------------------------- */
+/* --- statistic cards ---------------------------------------------------- */
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin-bottom: 24px; }
-.stat { background: var(--panel); border: 1px solid var(--rule); padding: 14px 16px; }
-.stat .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
-.stat .value { font-size: 27px; font-weight: 600; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
-.stat .value.muted { font-size: 16px; font-weight: 500; color: var(--ink-faint); }
-.stat .note { font-size: 12px; color: var(--ink-faint); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.stat {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+.stat .label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+.stat .value { font-size: 1.5rem; font-weight: 700; margin: 6px 0 3px; font-variant-numeric: tabular-nums; color: var(--navy); line-height: 1.2; }
+.stat .value.muted { font-size: .95rem; font-weight: 600; color: var(--ink-soft); }
+.stat .note { font-size: .74rem; color: var(--ink-faint); line-height: 1.45; }
 
-/* --- panels and tables -------------------------------------------------- */
+/* --- panels ------------------------------------------------------------- */
 
-section { background: var(--panel); border: 1px solid var(--rule); margin-bottom: 20px; }
+section {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  margin-bottom: 18px; overflow: hidden;
+}
 section > h2 {
-  margin: 0; padding: 11px 16px; font-size: 14px; font-weight: 600;
-  border-bottom: 1px solid var(--rule); background: #fafaf8;
+  margin: 0; padding: 13px 18px;
+  font-size: .88rem; font-weight: 700; color: var(--navy);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 9px;
 }
-section > .body { padding: 14px 16px; }
+section > h2::before {
+  content: ""; width: 3px; height: 15px; border-radius: 2px;
+  background: var(--accent); flex: none;
+}
+section > .body { padding: 15px 18px; }
 
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-th, td { text-align: left; padding: 7px 16px; border-bottom: 1px solid var(--rule-soft); }
+/* --- tables ------------------------------------------------------------- */
+
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { text-align: left; padding: 9px 18px; border-bottom: 1px solid var(--line-soft); }
 th {
-  font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--ink-faint); font-weight: 600; background: #fafaf8;
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-faint); font-weight: 600; background: #fbfcfd;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
 }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--navy-tint); }
 td.num { text-align: right; font-variant-numeric: tabular-nums; }
-tr.highlight td { background: var(--navy-soft); font-weight: 600; }
+tr.highlight td { background: var(--navy-tint); font-weight: 600; }
 
 .meta {
-  font-size: 12px; color: var(--ink-faint);
-  padding: 9px 16px; border-top: 1px solid var(--rule-soft); background: #fafaf8;
+  font-size: .74rem; color: var(--ink-faint); line-height: 1.5;
+  padding: 11px 18px; border-top: 1px solid var(--line-soft); background: #fbfcfd;
 }
-code { font: 12.5px ui-monospace, Consolas, monospace; background: #f2f1ed; padding: 1px 5px; }
-.empty { color: var(--ink-faint); font-style: italic; padding: 18px 16px; }
+code {
+  font-family: ui-monospace, Consolas, monospace; font-size: .78rem;
+  background: var(--navy-tint); color: var(--navy);
+  padding: 1px 6px; border-radius: 4px;
+}
+.empty { color: var(--ink-faint); font-style: italic; padding: 20px 18px; font-size: .84rem; }
 
 /* --- status tags -------------------------------------------------------- */
 
-.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border: 1px solid; letter-spacing: .03em; }
-.tag.sim  { color: var(--warn); border-color: #d8b96a; background: var(--warn-bg); }
-.tag.live { color: var(--ok);   border-color: #a8c8b4; background: #f0f7f2; }
-.tag.off  { color: var(--navy); border-color: #b8c8dc; background: var(--navy-soft); }
-.tag.stop { color: var(--stop); border-color: #d8a8a8; background: #fdf2f2; }
-
-/* --- controls ----------------------------------------------------------- */
+.tag {
+  display: inline-block; font-size: .68rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 12px; border: 1px solid; letter-spacing: .02em;
+}
+.tag.sim  { color: var(--warn); border-color: #f0deb0; background: var(--warn-tint); }
+.tag.live { color: var(--ok);   border-color: #bbf7d0; background: var(--ok-tint); }
+.tag.off  { color: var(--navy); border-color: #c7d9f2; background: var(--navy-tint); }
+.tag.stop { color: var(--stop); border-color: #fecaca; background: var(--stop-tint); }
 
 select, input[type="text"] {
-  font: inherit; padding: 5px 8px;
-  border: 1px solid var(--rule); background: var(--panel); color: var(--ink);
+  font: inherit; font-size: .84rem; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--ink);
 }
+select:focus, input:focus { outline: 2px solid var(--navy-tint); border-color: var(--navy); }
 
 /* --- charts ------------------------------------------------------------- */
-/* Hand-drawn SVG rather than a charting library: one fewer dependency, no CDN
-   at demo time, and full control over the axis labelling a statistical chart
-   needs. */
 
-.chart { padding: 12px 16px 4px; }
+.chart { padding: 16px 18px 6px; }
 .chart svg { display: block; width: 100%; height: auto; }
-.chart .axis { stroke: var(--rule); stroke-width: 1; }
-.chart .grid-line { stroke: var(--rule-soft); stroke-width: 1; }
+.chart .axis { stroke: var(--line); stroke-width: 1; }
+.chart .grid-line { stroke: var(--line-soft); stroke-width: 1; }
 .chart .series { fill: none; stroke: var(--navy); stroke-width: 2; }
-.chart .series-alt { fill: none; stroke: var(--gold); stroke-width: 2; stroke-dasharray: 4 3; }
 .chart .point { fill: var(--navy); }
 .chart .bar { fill: var(--navy); }
-.chart .bar.cpi { fill: var(--gold); }
-.chart text { font: 11px "Segoe UI", system-ui, sans-serif; fill: var(--ink-faint); }
-.chart text.value { fill: var(--ink); font-variant-numeric: tabular-nums; }
+.chart .bar.cpi { fill: var(--accent); }
+.chart text { font-family: "Segoe UI", system-ui, sans-serif; font-size: 11px; fill: var(--ink-faint); }
+.chart text.value { fill: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 10px; }
 
-footer {
-  padding: 20px 28px; font-size: 12px; color: var(--ink-faint);
-  border-top: 1px solid var(--rule);
+/* --- footer ------------------------------------------------------------- */
+
+.gov-footer { margin-top: 36px; }
+.gov-footer .links {
+  background: var(--panel); border-top: 1px solid var(--line);
+  padding: 14px 32px; font-size: .78rem;
+  display: flex; gap: 24px; flex-wrap: wrap;
+}
+.gov-footer .links a { color: var(--ink-soft); text-decoration: none; }
+.gov-footer .links a:hover { color: var(--navy); text-decoration: underline; }
+.gov-footer .attribution {
+  background: var(--navy-deep); color: #b9c6da;
+  padding: 20px 32px; font-size: .76rem; line-height: 1.65;
+}
+.gov-footer .attribution strong { color: #fff; }
+.gov-footer .attribution code { background: rgba(255,255,255,.1); color: #dbe6f5; }
+.gov-footer .attribution .row { margin-bottom: 5px; max-width: 1000px; }
+.gov-footer .disclaimer {
+  background: #0d1f3d; color: #8ea3c0;
+  padding: 11px 32px; font-size: .72rem;
 }
