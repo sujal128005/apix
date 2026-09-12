@@ -15,6 +15,16 @@ from pipeline.backtest import (
     compare_movements,
     monthly_average,
 )
+from pipeline.dissemination import (
+    APIX_DATASET,
+    Codelist,
+    DatasetDefinition,
+    Dimension,
+    Measure,
+    to_csv,
+    to_json,
+    to_sdmx_structure,
+)
 from pipeline.impute import ImputationResult, StratumState, imputation_rate, impute_missing
 from pipeline.normalise import (
     NormalisationError,
@@ -65,13 +75,18 @@ from pipeline.weights import (
 )
 
 __all__ = [
+    "APIX_DATASET",
     "AlignedMonth",
     "BacktestReport",
     "Cabin",
     "Changeability",
+    "Codelist",
+    "DatasetDefinition",
     "DepartureBand",
+    "Dimension",
     "ImputationResult",
     "IndexRun",
+    "Measure",
     "MonthlyPoint",
     "NormalisationError",
     "NormalisedFields",
@@ -112,6 +127,9 @@ __all__ = [
     "specification_from_quote",
     "stratum_uncertainty",
     "submit_for_approval",
+    "to_csv",
+    "to_json",
+    "to_sdmx_structure",
     "validate_weight_set",
     "withdraw",
 ]

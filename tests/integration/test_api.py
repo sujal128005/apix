@@ -548,3 +548,40 @@ def test_the_footer_invents_no_government_affiliation(client: TestClient) -> Non
     # External links are permitted, but must be labelled and opened safely.
     assert "external reference" in js
     assert 'rel="noopener noreferrer"' in js
+
+
+# -- dissemination (Phase 22) ---------------------------------------------
+
+
+def test_an_export_never_contains_an_unpublished_figure(client: TestClient) -> None:
+    """An export is a publication.
+
+    A CSV containing an unapproved figure is as much a disclosure as a web page
+    showing one, and easier to do by accident. The demo database has computed
+    figures and no publication records, so a correct export is empty.
+    """
+    body = client.get("/api/v1/data/download?fmt=csv").text
+    lines = [line for line in body.strip().splitlines() if line.strip()]
+    assert len(lines) == 1, "header only: nothing is published, so nothing exports"
+
+
+def test_the_structure_message_is_served(client: TestClient) -> None:
+    message = client.get("/api/v1/data/structure").json()
+    assert message["data"]["dataStructures"][0]["agencyID"] == "MoSPI"
+    assert message["data"]["codelists"]
+
+
+def test_a_csv_download_is_offered_as_a_file(client: TestClient) -> None:
+    response = client.get("/api/v1/data/download?fmt=csv")
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+    assert ".csv" in response.headers["content-disposition"]
+
+
+def test_an_unsupported_format_is_refused(client: TestClient) -> None:
+    assert client.get("/api/v1/data/download?fmt=xlsx").status_code == 422
+
+
+def test_the_download_limit_is_bounded(client: TestClient) -> None:
+    """An unbounded extract is a denial-of-service vector on a public endpoint."""
+    assert client.get("/api/v1/data/download?limit=999999").status_code == 422

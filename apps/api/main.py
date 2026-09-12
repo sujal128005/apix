@@ -34,7 +34,7 @@ from db.settings import DbSettings
 from schemas.enums import IndexLevel, Mode, Provenance
 from schemas.models.collection import ComplianceDecision
 from schemas.models.derived import NormalisedQuote
-from schemas.models.indexing import IndexObservation
+from schemas.models.indexing import IndexObservation, Publication
 from schemas.models.reference import LeadTimeBucket, Route, Source
 from schemas.models.versioning import MethodologyVersion, RouteWeight, WeightSetVersion
 
@@ -915,6 +915,94 @@ def operations() -> dict[str, Any]:
             },
             "meta": _meta(session),
         }
+
+
+@app.get("/api/v1/data/structure", tags=["dissemination"])
+def data_structure() -> dict[str, Any]:
+    """The dataset's structural definition, as an SDMX-JSON structure message.
+
+    SDMX is the usual exchange standard between statistical bodies. If the
+    ministry's dissemination stack expects a different format, only the
+    serialiser changes - the definition it is built from does not.
+    """
+    from pipeline.dissemination import APIX_DATASET, to_sdmx_structure
+
+    return to_sdmx_structure(APIX_DATASET)
+
+
+@app.get("/api/v1/data/download", tags=["dissemination"])
+def data_download(
+    fmt: str = Query(default="csv", pattern="^(csv|json)$"),
+    level: str = Query(default=IndexLevel.ROUTE),
+    limit: int = Query(default=5000, le=50000),
+) -> Response:
+    """Bulk extract of **published** figures.
+
+    An export is a publication. A CSV containing an unapproved figure is as much
+    a disclosure as a web page showing one, and easier to do by accident - so
+    this filters on publication state exactly as the dashboard does.
+
+    Every row carries its methodology version, weight-set version and revision.
+    Extracts get filtered, sorted and pasted into spreadsheets; a provenance
+    header at the top of the file survives none of that.
+    """
+    from pipeline.dissemination import APIX_DATASET, to_csv, to_json
+    from pipeline.publication import PublicationState
+
+    with _Session() as session:
+        statement = (
+            sa.select(IndexObservation, Route.code, LeadTimeBucket.code, Publication)
+            .join(Publication, Publication.index_observation_id == IndexObservation.id)
+            .join(Route, Route.id == IndexObservation.ref_id, isouter=True)
+            .join(
+                LeadTimeBucket,
+                LeadTimeBucket.id == IndexObservation.bucket_id,
+                isouter=True,
+            )
+            .where(Publication.state == PublicationState.PUBLISHED)
+            .where(IndexObservation.level == level)
+            .order_by(IndexObservation.obs_date.desc())
+            .limit(limit)
+        )
+        methodologies = {
+            row.id: row.version
+            for row in session.execute(sa.select(MethodologyVersion)).scalars()
+        }
+        weight_sets = {
+            row.id: row.version
+            for row in session.execute(sa.select(WeightSetVersion)).scalars()
+        }
+
+        rows = [
+            {
+                "FREQ": "D",
+                "TIME_PERIOD": obs.obs_date.isoformat(),
+                "LEVEL": obs.level,
+                "ROUTE": route_code or "",
+                "LEAD_TIME": bucket_code or "",
+                "OBS_VALUE": obs.index_value,
+                "METHODOLOGY_VERSION": methodologies.get(obs.methodology_version_id, ""),
+                "WEIGHT_SET_VERSION": weight_sets.get(obs.weight_set_version_id, ""),
+                "REVISION": obs.revision,
+                "OBS_STATUS": pub.state,
+                "STD_ERROR": "",
+                "PROVENANCE": "",
+            }
+            for obs, route_code, bucket_code, pub in session.execute(statement).all()
+        ]
+
+    if fmt == "csv":
+        return Response(
+            content=to_csv(rows, APIX_DATASET),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="apix-{level.lower()}-'
+                    f'{date.today().isoformat()}.csv"'
+                )
+            },
+        )
+    return JSONResponse(to_json(rows, APIX_DATASET))
 
 
 @app.get("/api/v1/methodology", tags=["methodology"])
