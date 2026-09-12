@@ -4,8 +4,12 @@ Values come from the environment (``.env`` is loaded if present). The fallbacks
 below exist so that a fresh checkout works against the local
 ``docker-compose.yml`` container with no configuration at all; they are
 development-container defaults, not secrets, and they match the defaults in
-``docker-compose.yml``. Anything other than that local container must set the
-variables explicitly - see ``.env.example``.
+``docker-compose.yml``.
+
+**They apply in development only.** With ``APIX_ENV`` set to staging or
+production, a missing variable raises rather than falling back: pointing a
+statistical production system at a development database, silently, is how a
+wrong figure gets published instead of an outage getting noticed.
 
 The published port defaults to 5433 rather than 5432 so APIx does not collide
 with another PostgreSQL already bound to the conventional port.
@@ -19,6 +23,12 @@ from pathlib import Path
 from typing import Final
 
 from dotenv import load_dotenv
+
+from schemas.environment import current_environment, requires_explicit_credentials
+
+
+class MissingConfigurationError(RuntimeError):
+    """A required setting is absent outside development."""
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
@@ -46,9 +56,26 @@ def _load_dotenv_once() -> None:
 
 
 def _get(key: str) -> str:
+    """Read a setting, falling back to a local-dev default only in development.
+
+    In staging and production a missing variable raises. A silent fallback there
+    would point a statistical production system at a development database with
+    a development password, and it would do so without saying anything - which
+    is exactly the class of failure that produces a wrong published figure
+    rather than an outage.
+    """
     _load_dotenv_once()
     value = os.environ.get(key, "").strip()
-    return value or _LOCAL_DEV_DEFAULTS[key]
+    if value:
+        return value
+
+    if requires_explicit_credentials():
+        raise MissingConfigurationError(
+            f"{key} is not set. APIX_ENV={current_environment().value} requires "
+            "every database setting to be explicit; the local development "
+            "defaults are not applied outside development."
+        )
+    return _LOCAL_DEV_DEFAULTS[key]
 
 
 @dataclass(frozen=True, slots=True)

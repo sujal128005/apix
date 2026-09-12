@@ -13,9 +13,14 @@ What it does each day, in one job:
 
 Four properties that matter more than the scheduling itself:
 
-**One run at a time.** ``max_instances=1``. A daily job that overruns must not
-start a second copy alongside the first; two runners issuing the same searches
-would double the load on every source and race on ``query_hash``.
+**One run at a time, across every node.** ``max_instances=1`` prevents a job
+overlapping itself *within* a process. It does nothing about a second process:
+run two API instances behind a load balancer and both schedulers fire, doubling
+the request volume every source sees. Production therefore takes a **PostgreSQL
+advisory lock** before collecting, and a node that cannot acquire it stands down
+quietly. The lock is held for the duration of the run and released automatically
+if the node dies, which is the property a heartbeat table would have to
+reimplement badly.
 
 **Missed runs are not stampeded.** ``coalesce=True`` with a bounded
 ``misfire_grace_time``. If the process was down for three days, the scheduler
@@ -38,9 +43,11 @@ dates are defined in IST. Scheduling in UTC would silently shift which day a
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import Final
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
@@ -51,7 +58,20 @@ from sqlalchemy.orm import Session, sessionmaker
 from collector.adapter import CollectionSpec
 from schemas.models.reference import LeadTimeBucket, Route, Source
 
-__all__ = ["IST", "CollectionSchedule", "build_daily_plan"]
+__all__ = [
+    "COLLECTION_LOCK_KEY",
+    "IST",
+    "CollectionSchedule",
+    "DailyCollectionJob",
+    "build_daily_plan",
+    "collection_lock",
+    "start_scheduler",
+]
+
+#: Identifier for the advisory lock guarding the daily run. Arbitrary but fixed:
+#: every node must ask for the same one. Spelled "APIX" in hex, to be unlikely to
+#: collide with another application sharing the cluster.
+COLLECTION_LOCK_KEY: Final[int] = 0x41504958
 
 logger = logging.getLogger("apix.scheduler")
 
@@ -73,6 +93,29 @@ class CollectionSchedule:
         return CronTrigger(
             hour=self.hour, minute=self.minute, timezone=IST, jitter=120
         )
+
+
+@contextmanager
+def collection_lock(session: Session) -> Iterator[bool]:
+    """Hold the cluster-wide collection lock, or yield False.
+
+    ``pg_try_advisory_lock`` returns immediately rather than queuing: a node
+    that loses the race should stand down, not wait to run the same day a second
+    time. The lock is session-scoped, so a node that crashes releases it when its
+    connection drops - no stale-lock cleanup to get wrong.
+    """
+    acquired = bool(
+        session.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": COLLECTION_LOCK_KEY}
+        ).scalar_one()
+    )
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            session.execute(
+                sa.text("SELECT pg_advisory_unlock(:key)"), {"key": COLLECTION_LOCK_KEY}
+            )
 
 
 def build_daily_plan(session: Session, collected_date: date) -> list[CollectionSpec]:
@@ -132,7 +175,18 @@ class DailyCollectionJob:
         logger.info("daily collection starting", extra={"collected_date": str(day)})
 
         try:
-            with self._session_factory() as session:
+            with self._session_factory() as session, collection_lock(session) as held:
+                if not held:
+                    # Another node is already collecting today. Standing down is
+                    # correct: a second run would double the request volume every
+                    # source sees, and that is a compliance problem before it is
+                    # a performance one.
+                    logger.info(
+                        "another node holds the collection lock; standing down",
+                        extra={"collected_date": str(day)},
+                    )
+                    return
+
                 plan = build_daily_plan(session, day)
                 if not plan:
                     logger.warning(

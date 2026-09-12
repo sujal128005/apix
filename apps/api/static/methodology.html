@@ -32,6 +32,18 @@
       "cheapest today" with "cheapest yesterday" would record a change of airline as a
       change of price.</p>
 
+      <p><strong>Product specification.</strong> A matched pair requires the same
+      <em>product</em>, defined by the characteristics that determine its price:
+      route, carrier, cabin, trip type, routing, departure-time band, fare brand,
+      baggage entitlement, refundability, changeability and passenger type.</p>
+
+      <p style="margin-left:18px">Flight number is deliberately <em>excluded</em>. It is
+      operational metadata, not a price-determining characteristic: a schedule change
+      that renumbers a flight leaves the product unchanged, and treating it as a new
+      product would lose the matched pair and record no movement where there was one.
+      Departure-time band is included instead &mdash; a dawn departure and a late-evening
+      one are genuinely different products at genuinely different prices.</p>
+
       <p><strong>2. Route level &mdash; weighted arithmetic mean</strong> across the six
       advance-purchase windows.</p>
 
@@ -65,6 +77,21 @@
       produced it. A revision creates a new version and recomputes forward; a
       published value can never be silently overwritten, so a revision is never
       mistaken for a correction.
+    </div>
+  </section>
+
+  <section>
+    <h2>Precision</h2>
+    <div class="body" style="font-size:14px">
+      <p style="margin-top:0">Each elementary index carries a sampling standard error,
+      derived from the dispersion of log price relatives within the stratum
+      (<code>se = s / &radic;n</code>), with a Student's t multiplier below eight
+      observations.</p>
+      <p style="margin-bottom:0"><strong>This is sampling error only.</strong> It measures
+      how much the index would move had a different set of flights been observed within
+      the same stratum. It does not capture basket, weighting or coverage error &mdash;
+      which are larger sources here &mdash; and an interval presented as though it bounded
+      total error would overstate what is known.</p>
     </div>
   </section>
 

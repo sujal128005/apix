@@ -21,12 +21,19 @@ from schemas.enums import (
     SourceTier,
     Transport,
 )
+from schemas.environment import (
+    Environment,
+    current_environment,
+    is_production,
+    require_not_production,
+)
 from schemas.hashing import compute_query_hash
 from schemas.uuid7 import uuid7
 
 __all__ = [
     "ComplianceDecisionCode",
     "Confidence",
+    "Environment",
     "EvidenceRung",
     "FareComponentKind",
     "ImputationCode",
@@ -40,5 +47,8 @@ __all__ = [
     "SourceTier",
     "Transport",
     "compute_query_hash",
+    "current_environment",
+    "is_production",
+    "require_not_production",
     "uuid7",
 ]

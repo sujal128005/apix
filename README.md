@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`828 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`878 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 828 passed
+.venv\Scripts\pytest -q                           # expect 878 passed
 ```
 
 Then populate it and start the site:
@@ -90,9 +90,15 @@ Consumer Price Index** (January 2026, Price Statistics Division, NSO).
 I(t) = GM( p(t) / p(t-1) ) × I(t-1)
 ```
 
-Matched pairs only: the same `(carrier, flight number, fare brand)` in both
-periods. Comparing "cheapest today" with "cheapest yesterday" would record a
-change of airline as a change of price.
+Matched pairs only, on a **product specification**: route, carrier, cabin, trip
+type, routing, departure-time band, fare brand, baggage, refundability,
+changeability and passenger type. Comparing "cheapest today" with "cheapest
+yesterday" would record a change of airline as a change of price.
+
+Flight number is excluded deliberately — it is operational metadata, and a
+schedule change that renumbers a flight leaves the product unchanged. Departure
+band is included instead, because a dawn and a late-evening departure are not the
+same product.
 
 **Route and headline — Young / Modified Laspeyres**, the weighted arithmetic mean
 of lower-level indices.
@@ -180,7 +186,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**828 tests** — 421 unit, 407 integration. The count is not the point; what it
+**878 tests** — 465 unit, 413 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |

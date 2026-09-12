@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from collector.scheduler import (
     IST,
@@ -25,6 +25,14 @@ from schemas.models.reference import Source, SourceReview
 from tests.support.builders import SeedRefs
 
 DAY = date(2026, 9, 15)
+
+
+def _separate_engine() -> sa.Engine:
+    """A connection that is not the test session's, standing in for another node."""
+    from db.settings import DbSettings
+
+    settings = DbSettings.from_env()
+    return sa.create_engine(settings.app_url(settings.test_database), future=True)
 
 
 def test_the_plan_is_empty_when_no_source_is_enabled(
@@ -158,3 +166,63 @@ def test_the_misfire_grace_is_bounded() -> None:
 @pytest.mark.parametrize("hour", [0, 6, 23])
 def test_the_run_hour_is_configurable(hour: int) -> None:
     assert CollectionSchedule(hour=hour).trigger() is not None
+
+
+# -- production safety (Phase 19) -----------------------------------------
+
+
+def test_two_nodes_cannot_collect_the_same_day(app_session: Session) -> None:
+    """`max_instances=1` guards a process, not a cluster.
+
+    Two API instances behind a load balancer would both fire their schedulers
+    and double the request volume every source sees - a compliance problem
+    before it is a performance one. The advisory lock makes the second node
+    stand down.
+    """
+    from collector.scheduler import collection_lock
+
+    # A genuinely separate engine, not another session on the same one.
+    # Advisory locks are held per *connection*, and a second session bound to the
+    # same engine may be handed the same pooled connection - which already holds
+    # the lock, so it re-acquires it happily. That is correct PostgreSQL
+    # behaviour and a useless simulation of a second node.
+    node_b_engine = _separate_engine()
+    node_b = sessionmaker(bind=node_b_engine)()
+    try:
+        with collection_lock(app_session) as first, collection_lock(node_b) as second:
+            assert first is True
+            assert second is False, "the second node must not also collect"
+    finally:
+        node_b.close()
+        node_b_engine.dispose()
+
+
+def test_the_lock_is_released_for_the_next_run(app_session: Session) -> None:
+    from collector.scheduler import collection_lock
+
+    with collection_lock(app_session) as held:
+        assert held is True
+    with collection_lock(app_session) as again:
+        assert again is True, "a released lock must be re-acquirable tomorrow"
+
+
+def test_a_node_without_the_lock_does_no_work(app_session: Session) -> None:
+    """Standing down must mean standing down, not collecting quietly."""
+    from collector.scheduler import collection_lock
+
+    holder_engine = _separate_engine()
+    holder = sessionmaker(bind=holder_engine)()
+    calls: list[str] = []
+    try:
+        with collection_lock(holder) as held:
+            assert held
+            job = DailyCollectionJob(
+                session_factory=lambda: app_session,
+                run_collection=lambda s, p, d: calls.append("collected") or 0,
+                compute_index=lambda s, d: calls.append("indexed"),
+            )
+            job(collected_date=DAY)
+        assert calls == [], "a node without the lock must collect nothing"
+    finally:
+        holder.close()
+        holder_engine.dispose()

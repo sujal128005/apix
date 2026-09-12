@@ -87,6 +87,31 @@ real.
 
 ---
 
+## C0. Phase 20 — statistical rigour
+
+Added 12 September 2026, in response to an independent review.
+
+**Product specification.** The matching key was
+`(carrier, flight number, fare brand)` — an identifier tuple, not a
+specification. A schedule change renumbering a flight produced a spurious
+non-match and silently recorded no price movement where there was one. Matching
+now uses the price-determining characteristics: route, carrier, cabin, trip type,
+routing, departure-time **band**, fare brand, baggage, refundability,
+changeability and passenger type. Flight number is excluded as operational
+metadata; departure band replaces it, so a renumbered flight stays matched while
+a dawn and an evening departure do not pool.
+
+**Uncertainty estimation.** Each elementary index now carries a sampling standard
+error and a 95% interval, with a t multiplier below eight observations, and a
+relative standard error for quality assessment. A stratum with one observation
+reports its variance as *unknown* rather than as zero.
+
+**What the interval excludes** is stated wherever it appears: basket, weighting
+and coverage error are larger sources here than sampling, and no interval
+computed from observed prices can capture them.
+
+---
+
 ## C1. The largest weakness: route weighting
 
 This is the project's most serious gap and it is not a labelling problem.

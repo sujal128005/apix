@@ -27,6 +27,9 @@ from collector.adapter import (
 )
 from compliance.token import ComplianceToken
 from schemas.enums import Provenance
+from schemas.environment import require_not_production
+
+require_not_production("MockAdapter")
 
 __all__ = ["MockAdapter", "MockBehaviour"]
 
