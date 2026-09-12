@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`920 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`960 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 920 passed
+.venv\Scripts\pytest -q                           # expect 960 passed
 ```
 
 Then populate it and start the site:
@@ -199,7 +199,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**920 tests** — 490 unit, 430 integration. The count is not the point; what it
+**960 tests** — 530 unit, 430 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |
@@ -276,6 +276,7 @@ data/reference/        CPI item identity, benchmark series, robots snapshots
 
 `docs/AUDIT.md` is the requirement-by-requirement traceability matrix.
 `docs/DEPLOYMENT.md` covers environment, roles, scheduling and health checks.
+`docs/GIGW-READINESS.md` assesses conformity for Government of India hosting.
 `docs/DEMO-SCRIPT.md` is the demo walkthrough.
 
 ---

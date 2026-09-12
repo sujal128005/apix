@@ -34,7 +34,7 @@
 
   --ink:       #1c2229;
   --ink-soft:  #454d57;
-  --ink-faint: #6f7780;
+  --ink-faint: #666e77;
 
   --page:   #f4f5f6;
   --panel:  #ffffff;
@@ -255,8 +255,11 @@ select:focus, input:focus, a:focus, button:focus {
 .chart .point { fill: var(--navy-500); }
 .chart .bar { fill: var(--navy-500); }
 .chart .bar.cpi { fill: var(--saffron); }
-.chart text { font-family: var(--font); font-size: 11px; fill: var(--ink-faint); }
-.chart text.value { fill: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 10px; }
+/* Chart labels in rem, not px: a reader who enlarges text should get readable
+   axis labels too. Fixed px here would leave the charts unreadable for exactly
+   the user who needed the control. */
+.chart text { font-family: var(--font); font-size: .73rem; fill: var(--ink-faint); }
+.chart text.value { fill: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: .67rem; }
 
 /* --- footer ------------------------------------------------------------- */
 
