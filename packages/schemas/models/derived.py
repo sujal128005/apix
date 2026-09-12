@@ -106,6 +106,11 @@ class NormalisedQuote(Entity):
             "collected_date",
             name="uq_normalised_quote_dedup",
         ),
+        # Added from load-test measurement (revision 0007): the recent-observations
+        # query fell from 1040 ms to 0.6 ms at six million rows, and the lead-time
+        # profile from 828 ms to 4.5 ms.
+        sa.Index("ix_normalised_quote_collected_date", "collected_date"),
+        sa.Index("ix_normalised_quote_date_bucket", "collected_date", "bucket_id"),
         sa.Index(
             "ix_normalised_quote_route_bucket_date",
             "route_id",

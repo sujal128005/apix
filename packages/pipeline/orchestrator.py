@@ -398,6 +398,37 @@ def compute_index_for_date(
     return run
 
 
+def refresh_quality_summary(engine: sa.Engine) -> None:
+    """Rebuild the data-quality summary. **Call after committing, not during.**
+
+    Takes an engine rather than a session, and opens its own autocommit
+    connection, because ``REFRESH MATERIALIZED VIEW CONCURRENTLY`` cannot run
+    inside a transaction block. Calling it mid-transaction does not merely fail
+    - it aborts the surrounding transaction, and catching the error does not
+    un-poison it. The first version of this function did exactly that and took
+    eleven orchestrator tests down with it.
+
+    CONCURRENTLY so the page keeps serving the previous summary while the new
+    one is built: at six million observations the aggregate takes around 800 ms,
+    and a reader arriving mid-refresh should get slightly stale figures rather
+    than a stalled page.
+
+    Failure is logged and swallowed. A stale quality summary is a presentation
+    problem; a collection run that fails because a reporting view could not be
+    rebuilt is a data problem, and the second is worse.
+    """
+    try:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            connection.execute(
+                sa.text("REFRESH MATERIALIZED VIEW CONCURRENTLY quality_summary")
+            )
+    except DatabaseError as exc:
+        logger.warning(
+            "quality summary refresh failed; the page will show the previous run",
+            extra={"error": str(exc.orig)},
+        )
+
+
 def _most_recent_date_before(session: Session, obs_date: date) -> date | None:
     return session.execute(
         sa.select(NormalisedQuote.collected_date)

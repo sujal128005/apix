@@ -87,6 +87,37 @@ real.
 
 ---
 
+## C0c. Phase 22–23 — dissemination and scale
+
+**Dissemination (Phase 22).** A dataset definition — dimensions, codelists,
+measures, attributes — kept separate from its serialisation, so that if MoSPI's
+stack expects something other than SDMX only the serialiser changes. Bulk CSV and
+JSON export, filtered to **published** figures: an export is a publication, and a
+CSV containing an unapproved figure is as much a disclosure as a web page showing
+one. Index values serialise as strings rather than JSON numbers, because
+`float(Decimal("110.234567"))` can reach a consumer as `110.23456700000001`, and
+for an official statistic that is a different number.
+
+**Scale (Phase 23).** A load test at production basket size — 78 DGCA-monitored
+city pairs, both directions, six windows, three sources — generated **6.1 million
+observations, 640 MB**, and timed the queries the dashboard actually runs:
+
+| Query | Before | After |
+|---|---|---|
+| Recent observations | 1040.4 ms | **0.6 ms** |
+| Lead-time profile | 827.6 ms | **4.5 ms** |
+| Route history | 4.7 ms | 0.8 ms |
+| Latest route indices | 6.8 ms | 4.2 ms |
+| Data quality, provenance counts | 810.4 ms | **788.0 ms** |
+
+Every index in revision 0007 is there because it was measured. The last row did
+not improve and no index would have: counting every row grouped by provenance
+reads the whole table by definition. That one is answered instead by a
+materialised summary refreshed after each run — a different shape of answer
+rather than a bigger index.
+
+---
+
 ## C0b. Phase 21 — governance and release control
 
 Added 12 September 2026.

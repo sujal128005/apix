@@ -36,7 +36,12 @@ from pipeline.normalise import (
     normalise_payload,
     score_quality,
 )
-from pipeline.orchestrator import IndexRun, RouteOutcome, compute_index_for_date
+from pipeline.orchestrator import (
+    IndexRun,
+    RouteOutcome,
+    compute_index_for_date,
+    refresh_quality_summary,
+)
 from pipeline.publication import (
     PublicationError,
     PublicationState,
@@ -122,6 +127,7 @@ __all__ = [
     "monthly_average",
     "normalise_payload",
     "publish",
+    "refresh_quality_summary",
     "revise",
     "score_quality",
     "specification_from_quote",

@@ -45,7 +45,10 @@ from compliance.robots import RobotsCache
 from compliance.token import ComplianceToken
 from db.settings import DbSettings
 from pipeline.normalise import normalise_payload, score_quality
-from pipeline.orchestrator import compute_index_for_date
+from pipeline.orchestrator import (
+    compute_index_for_date,
+    refresh_quality_summary,
+)
 from pipeline.weights import (
     build_equal_weights,
     build_from_airport_throughput,
@@ -502,6 +505,10 @@ def main() -> int:
                 f"  strata {run.strata_total:3d}  routes indexed {run.routes_with_index:2d}"
                 f"  headline {headline}"
             )
+
+        # After the loop and after commit: the summary describes completed
+        # collection, and REFRESH CONCURRENTLY cannot run inside a transaction.
+        refresh_quality_summary(engine)
 
         print()
         if run.headline_refused_reason:

@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`902 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`920 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 902 passed
+.venv\Scripts\pytest -q                           # expect 920 passed
 ```
 
 Then populate it and start the site:
@@ -199,7 +199,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**902 tests** — 472 unit, 430 integration. The count is not the point; what it
+**920 tests** — 490 unit, 430 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |

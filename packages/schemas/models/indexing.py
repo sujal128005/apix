@@ -97,6 +97,11 @@ class IndexObservation(Entity):
             name="uq_index_observation_identity",
             postgresql_nulls_not_distinct=True,
         ),
+        # Added from load-test measurement (revision 0007). At six million
+        # observations the dashboard's latest-indices query and the route
+        # explorer's history both scanned; these make them lookups.
+        sa.Index("ix_index_observation_level_date", "level", "obs_date"),
+        sa.Index("ix_index_observation_ref_date", "ref_id", "obs_date"),
     )
 
 
