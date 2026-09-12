@@ -30,6 +30,7 @@ from schemas.models.indexing import (
     BenchmarkObservation,
     IndexContribution,
     IndexObservation,
+    Publication,
 )
 from schemas.models.reference import Airport, LeadTimeBucket, Route, Source, SourceReview
 from schemas.models.system import SystemEvent
@@ -61,6 +62,7 @@ ALL_MODELS: tuple[type[Entity], ...] = (
     FareComponent,
     CleaningEvent,
     IndexObservation,
+    Publication,
     IndexContribution,
     BenchmarkObservation,
     BacktestRun,
@@ -94,6 +96,7 @@ __all__ = [
     "LeadTimeBucket",
     "MethodologyVersion",
     "NormalisedQuote",
+    "Publication",
     "RawQuote",
     "RawResponse",
     "Route",

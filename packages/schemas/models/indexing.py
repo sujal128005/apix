@@ -70,6 +70,13 @@ class IndexObservation(Entity):
         sa.Integer, nullable=False, server_default=sa.text("0")
     )
     routes_in_basket: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    revision: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    """Which revision of this figure. 1 is the first computation.
+
+    Part of the identity, so a correction for an already-published date creates
+    revision 2 beside revision 1 rather than replacing it. Both are retained: a
+    reader can always retrieve what was published at the time."""
+
     input_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
     computed_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
 
@@ -86,6 +93,7 @@ class IndexObservation(Entity):
             "ref_id",
             "bucket_id",
             "methodology_version_id",
+            "revision",
             name="uq_index_observation_identity",
             postgresql_nulls_not_distinct=True,
         ),
@@ -163,9 +171,63 @@ class BacktestRun(Entity):
     )
 
 
+class Publication(Entity):
+    """The release lifecycle of one computed index value.
+
+    Separate from ``index_observation`` because that table is append-only and
+    this state moves. Keeping them apart means the *figure* cannot change while
+    its *status* does - which is the property that makes a revision
+    distinguishable from a correction after the fact.
+    """
+
+    __tablename__ = "publication"
+
+    index_observation_id: Mapped[UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("index_observation.id"), nullable=False, unique=True
+    )
+    state: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PENDING")
+    approved_by: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    scheduled_release_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    published_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    supersedes_id: Mapped[UUID | None] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("index_observation.id"), nullable=True
+    )
+    revision_reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    withdrawn_reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            "state IN ('PENDING','APPROVED','PUBLISHED','WITHDRAWN')",
+            name="ck_publication_state",
+        ),
+        sa.CheckConstraint(
+            "state = 'PENDING' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)",
+            name="ck_publication_approval_is_attributed",
+        ),
+        sa.CheckConstraint(
+            "supersedes_id IS NULL OR revision_reason IS NOT NULL",
+            name="ck_publication_revision_has_reason",
+        ),
+        sa.CheckConstraint(
+            "state <> 'WITHDRAWN' OR withdrawn_reason IS NOT NULL",
+            name="ck_publication_withdrawal_has_reason",
+        ),
+        sa.Index("ix_publication_state", "state"),
+        sa.Index("ix_publication_published_at", "published_at"),
+    )
+
+
 __all__ = [
     "BacktestRun",
     "BenchmarkObservation",
     "IndexContribution",
     "IndexObservation",
+    "Publication",
 ]

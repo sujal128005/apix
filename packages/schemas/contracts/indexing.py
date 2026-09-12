@@ -16,7 +16,7 @@ from schemas.contracts.base import (
     SignedIndexValue,
     Utc,
 )
-from schemas.enums import IndexLevel
+from schemas.enums import IndexLevel, PublicationState
 
 
 class IndexObservation(ApixContract):
@@ -35,6 +35,12 @@ class IndexObservation(ApixContract):
     excluded_count: int = Field(ge=0)
     imputed_count: int = Field(ge=0)
     routes_in_basket: int | None = Field(default=None, ge=0)
+    revision: int = Field(default=1, ge=1)
+    """Which revision of this figure. 1 is the first computation.
+
+    Part of the identity, so a correction for an already-published date creates
+    revision 2 beside revision 1 rather than replacing it."""
+
     input_hash: NonEmptyText
     computed_at: Utc
 
@@ -85,9 +91,45 @@ class BacktestRun(ApixContract):
         return self
 
 
+class Publication(ApixContract):
+    """publication - the release lifecycle of one computed index value.
+
+    Separate from the observation because the figure is immutable and its status
+    is not. That separation is what keeps "what was published on the 14th?"
+    answerable after a revision on the 20th.
+    """
+
+    index_observation_id: UUID
+    state: PublicationState = PublicationState.PENDING
+    approved_by: NonEmptyText | None = None
+    approved_at: Utc | None = None
+    scheduled_release_at: Utc | None = None
+    published_at: Utc | None = None
+    supersedes_id: UUID | None = None
+    revision_reason: NonEmptyText | None = None
+    withdrawn_reason: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def approval_is_attributed(self) -> Publication:
+        """A figure released under no one's name is not an approved figure."""
+        if self.state is not PublicationState.PENDING and not self.approved_by:
+            raise ValueError(f"a {self.state} publication must record who approved it")
+        return self
+
+    @model_validator(mode="after")
+    def changes_explain_themselves(self) -> Publication:
+        """A revision or withdrawal a reader cannot evaluate is not disclosure."""
+        if self.supersedes_id is not None and not self.revision_reason:
+            raise ValueError("a revision must state its reason")
+        if self.state is PublicationState.WITHDRAWN and not self.withdrawn_reason:
+            raise ValueError("a withdrawal must state its reason")
+        return self
+
+
 __all__ = [
     "BacktestRun",
     "BenchmarkObservation",
     "IndexContribution",
     "IndexObservation",
+    "Publication",
 ]

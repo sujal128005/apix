@@ -23,6 +23,7 @@ from schemas.contracts.indexing import (
     BenchmarkObservation,
     IndexContribution,
     IndexObservation,
+    Publication,
 )
 from schemas.contracts.reference import Airport, LeadTimeBucket, Route, Source, SourceReview
 from schemas.contracts.system import SystemEvent
@@ -45,6 +46,7 @@ CONTRACT_BY_TABLE: dict[str, type[ApixContract]] = {
     "fare_component": FareComponent,
     "index_contribution": IndexContribution,
     "index_observation": IndexObservation,
+    "publication": Publication,
     "lead_time_bucket": LeadTimeBucket,
     "methodology_version": MethodologyVersion,
     "normalised_quote": NormalisedQuote,
@@ -75,6 +77,7 @@ __all__ = [
     "LeadTimeBucket",
     "MethodologyVersion",
     "NormalisedQuote",
+    "Publication",
     "RawQuote",
     "RawResponse",
     "Route",

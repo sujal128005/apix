@@ -23,6 +23,7 @@ from schemas.enums import (
     Confidence,
     FareComponentKind,
     IndexLevel,
+    PublicationState,
     ReviewVerdict,
 )
 from schemas.models import (
@@ -32,6 +33,7 @@ from schemas.models import (
     BenchmarkObservation,
     LeadTimeBucket,
     MethodologyVersion,
+    Publication,
     RawQuote,
     Route,
     Source,
@@ -172,6 +174,24 @@ def one_row_per_table(app_session: Session, refs: SeedRefs) -> dict[str, Any]:
     rows["index_contribution"] = add_contribution(
         app_session, refs, observation, route_code="DEL-BOM", contribution=Decimal("102.313000")
     )
+
+    # An approved-but-unpublished figure: the state carrying the most fields, so
+    # the round trip exercises attribution and scheduling rather than the empty
+    # PENDING case.
+    publication = Publication(
+        index_observation_id=observation.id,
+        state=PublicationState.APPROVED.value,
+        approved_by="round-trip fixture",
+        approved_at=utc(DAY, time(10, 0)),
+        scheduled_release_at=utc(DAY, time(11, 30)),
+        published_at=None,
+        supersedes_id=None,
+        revision_reason=None,
+        withdrawn_reason=None,
+    )
+    app_session.add(publication)
+    app_session.flush()
+    rows["publication"] = publication
 
     benchmark = BenchmarkObservation(
         bench_source="fixture",

@@ -87,6 +87,38 @@ real.
 
 ---
 
+## C0b. Phase 21 — governance and release control
+
+Added 12 September 2026.
+
+**An official statistic is not published by a scheduler finishing successfully.**
+A computed figure now enters a release lifecycle and becomes public only when a
+named person approves it:
+
+    computed -> PENDING -> APPROVED -> PUBLISHED -> (WITHDRAWN)
+
+Four rules, enforced by database constraint rather than convention:
+
+- **Approval is attributed.** A figure released under no one's name is refused.
+- **Publication follows approval**, and not before a scheduled release time. A
+  publication calendar that can be jumped is not a calendar, and early release of
+  a statistic used for monetary policy is a disclosure problem.
+- **A revision explains itself.** Schema revision 0006 adds `revision` to the
+  identity key, so a correction for an already-published date creates revision 2
+  beside revision 1. Previously this could only be expressed by inventing a new
+  methodology version — conflating "the method changed" with "a late observation
+  arrived", which are different events a reader must be able to tell apart. The
+  superseded figure keeps its value, timestamp and PUBLISHED state, so *what was
+  published on the 14th* stays answerable after a correction on the 20th.
+- **A withdrawal is itself a publication.** The row is never deleted and the
+  reason is required. A statistic that quietly disappears is worse than one
+  openly corrected: a reader who cited it deserves to learn what happened to it.
+
+The default query path returns published figures only, so a forgotten filter
+shows nothing rather than something unapproved.
+
+---
+
 ## C0. Phase 20 — statistical rigour
 
 Added 12 September 2026, in response to an independent review.

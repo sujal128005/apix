@@ -101,6 +101,7 @@ IMMUTABLE_TABLES: tuple[str, ...] = (
     "route_weight",
     "source_review",
     "weight_set_version",
+
 )
 
 # Tables that ordinary application code may UPDATE and DELETE.
@@ -111,6 +112,7 @@ MUTABLE_TABLES: tuple[str, ...] = (
     "fare_component",
     "lead_time_bucket",
     "normalised_quote",
+    "publication",
     "route",
     "source",
     "system_event",

@@ -50,9 +50,15 @@ def test_every_contract_maps_to_a_real_table() -> None:
     assert set(CONTRACT_BY_TABLE) == set(Base.metadata.tables)
 
 
-def test_the_schema_has_twenty_two_tables() -> None:
-    """21 from build brief section 5, plus base_period from the Phase 3 review."""
-    assert len(ALL_TABLES) == 22
+def test_the_schema_has_twenty_three_tables() -> None:
+    """21 from build brief section 5, plus base_period (Phase 3 review) and
+    publication (Phase 21 release lifecycle).
+
+    Asserted as an exact count so that adding a table is a deliberate act: a new
+    table without a contract would otherwise slip through, and every table in
+    this schema is part of the audit trail.
+    """
+    assert len(ALL_TABLES) == 23
 
 
 @pytest.mark.parametrize("table", sorted(ALL_TABLES))

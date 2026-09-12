@@ -6,7 +6,7 @@
 A daily airfare price index for India, computed with MoSPI's own published CPI 2024
 formulae and built to augment the Consumer Price Index.
 
-`878 tests passing · ruff clean · mypy --strict clean · CI on every push`
+`902 tests passing · ruff clean · mypy --strict clean · CI on every push`
 
 ---
 
@@ -44,7 +44,7 @@ docker compose up -d                              # PostgreSQL 16 on 127.0.0.1:5
 py -3.12 -m venv .venv                            # Python 3.12 only
 .venv\Scripts\pip install -e ".[dev]"
 .venv\Scripts\python scripts\init_db.py           # migrate and seed
-.venv\Scripts\pytest -q                           # expect 878 passed
+.venv\Scripts\pytest -q                           # expect 902 passed
 ```
 
 Then populate it and start the site:
@@ -146,6 +146,19 @@ Detail in `docs/scraping-compliance.md` and ADR-005, ADR-006, ADR-018, ADR-019.
 
 ---
 
+## Publication control
+
+A computed figure is not a published one. It enters a release lifecycle —
+`PENDING → APPROVED → PUBLISHED`, with `WITHDRAWN` as a public act rather than a
+deletion — and becomes visible only when a named person approves it against a
+release calendar.
+
+A correction creates a new **revision** beside the original rather than replacing
+it, and must state its reason. Both are retained, so the question *what was
+published on the 14th?* remains answerable after a correction on the 20th.
+
+---
+
 ## Provenance
 
 Every observation carries a non-null provenance label, enforced by database
@@ -186,7 +199,7 @@ FastAPI, server-rendered HTML. No Node toolchain and no CDN — every asset is
 served by this process, so a demo cannot fail because a stylesheet did not
 download.
 
-**878 tests** — 465 unit, 413 integration. The count is not the point; what it
+**902 tests** — 472 unit, 430 integration. The count is not the point; what it
 covers is:
 
 | Kind | What it protects |

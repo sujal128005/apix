@@ -160,6 +160,20 @@ class EvidenceRung(IntEnum):
     EQUAL = 4
 
 
+class PublicationState(StrEnum):
+    """Where a computed figure sits in the release lifecycle.
+
+    Computing is not publishing. An official statistic is released by a named
+    person against a calendar, and once released it is revised openly rather
+    than changed silently.
+    """
+
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    PUBLISHED = "PUBLISHED"
+    WITHDRAWN = "WITHDRAWN"
+
+
 class Mode(StrEnum):
     """Operating mode of a deployment.
 

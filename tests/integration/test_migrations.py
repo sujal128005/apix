@@ -51,7 +51,7 @@ def test_migrated_schema_matches_the_models(admin_engine: Engine) -> None:
 def test_head_revision_is_the_latest_revision(admin_engine: Engine) -> None:
     with admin_engine.connect() as connection:
         revision = MigrationContext.configure(connection).get_current_revision()
-    assert revision == "0005_base_period_mutable"
+    assert revision == "0006_revisions_and_publication"
 
 
 @pytest.fixture
@@ -87,7 +87,7 @@ def test_upgrade_downgrade_upgrade_runs_clean(
 
     migrate.upgrade(url)
     assert table_names(url) == set(ALL_TABLES)
-    assert migrate.current_revision(url) == "0005_base_period_mutable"
+    assert migrate.current_revision(url) == "0006_revisions_and_publication"
 
     migrate.downgrade(url, "base")
     assert table_names(url) == set(), "downgrade base left tables behind"
@@ -95,7 +95,7 @@ def test_upgrade_downgrade_upgrade_runs_clean(
 
     migrate.upgrade(url)
     assert table_names(url) == set(ALL_TABLES)
-    assert migrate.current_revision(url) == "0005_base_period_mutable"
+    assert migrate.current_revision(url) == "0006_revisions_and_publication"
 
 
 def test_downgrade_removes_the_view_and_the_uuid_generator(

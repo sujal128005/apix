@@ -77,14 +77,14 @@ def live_table_names(engine: Engine) -> set[str]:
 def test_all_tables_exist(admin_engine: Engine) -> None:
     """21 from the build brief, plus base_period added in the Phase 3 review."""
     assert live_table_names(admin_engine) == set(ALL_TABLES)
-    assert len(ALL_TABLES) == 22
+    assert len(ALL_TABLES) == 23
 
 
 def test_immutable_and_mutable_lists_partition_the_schema() -> None:
     assert set(IMMUTABLE_TABLES) & set(MUTABLE_TABLES) == set()
     assert set(IMMUTABLE_TABLES) | set(MUTABLE_TABLES) == set(ALL_TABLES)
     assert len(IMMUTABLE_TABLES) == 13
-    assert len(MUTABLE_TABLES) == 9
+    assert len(MUTABLE_TABLES) == 10
 
 
 @pytest.mark.parametrize("table_name", sorted(ALL_TABLES))
@@ -277,7 +277,19 @@ def test_index_observation_identity_key_covers_the_specified_columns(
                 """
             )
         ).scalars().all()
-    assert columns == ["obs_date", "level", "ref_id", "bucket_id", "methodology_version_id"]
+    assert columns == [
+        "obs_date",
+        "level",
+        "ref_id",
+        "bucket_id",
+        "methodology_version_id",
+        # Phase 21. Without revision in the identity, a correction to an
+        # already-published date could only be expressed by inventing a new
+        # methodology version - conflating "the method changed" with "a late
+        # observation arrived", which are different events a reader must be
+        # able to tell apart.
+        "revision",
+    ]
 
 
 # ---------------------------------------------------------------------------
