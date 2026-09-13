@@ -333,3 +333,78 @@ def test_a_real_robots_file_is_still_parsed_normally() -> None:
 def test_a_comment_only_robots_file_is_not_mistaken_for_a_page() -> None:
     cache, _ = _cache(200, "# nothing to declare\n")
     assert cache.get("s", "https://example.com", now=NOW).outcome == RobotsOutcome.OK
+
+
+# -- malformed rules: honouring intent over syntax -------------------------
+
+SPICEJET_STYLE = """User-agent: *
+Disallow:
+Disallow: /cgi-bin/
+Disallow: https://www.spicejet.com/api/v1
+Disallow: https://www.spicejet.com/public/
+Disallow: https://www.spicejet.com/externalBooking
+Sitemap: https://www.spicejet.com/sitemap.xml
+"""
+
+
+def test_a_disallow_written_as_a_full_url_is_still_honoured() -> None:
+    """Found on a real airline's robots.txt.
+
+    RFC 9309 says a Disallow value is a path. Written as a full URL, a strict
+    parser reads it as a path beginning "https:", which matches nothing - so
+    the rule silently permits exactly what it was written to forbid.
+
+    The intention is unmistakable. Collecting from those paths because someone
+    typed a URL where a path belonged is not compliance; it is finding a
+    loophole in a request not to crawl.
+    """
+    cache, _ = _cache(200, SPICEJET_STYLE)
+    doc = cache.get("spicejet", "https://www.spicejet.com", now=NOW)
+
+    for path in ("/api/v1", "/api/v1/flights", "/public/", "/externalBooking"):
+        allowed, rule = doc.allows(path, UA)
+        assert allowed is False, f"{path} must be refused despite the malformed rule"
+        assert rule is not None and "by intent" in rule
+
+
+def test_paths_outside_the_malformed_rules_remain_allowed() -> None:
+    """Honouring intent must not become a blanket refusal."""
+    cache, _ = _cache(200, SPICEJET_STYLE)
+    doc = cache.get("spicejet", "https://www.spicejet.com", now=NOW)
+
+    assert doc.allows("/", UA)[0] is True
+    assert doc.allows("/sitemap.xml", UA)[0] is True
+
+
+def test_well_formed_rules_are_unaffected() -> None:
+    cache, _ = _cache(200, SPICEJET_STYLE)
+    doc = cache.get("spicejet", "https://www.spicejet.com", now=NOW)
+    assert doc.allows("/cgi-bin/anything", UA)[0] is False
+
+
+def test_a_prefix_match_does_not_over_reach() -> None:
+    """/api/v1 must not silently block /api/v10 or /apiary."""
+    from compliance.robots import malformed_disallow_paths
+
+    body = "User-agent: *\nDisallow: https://example.com/api/v1\n"
+    assert malformed_disallow_paths(body) == ("/api/v1",)
+
+    cache, _ = _cache(200, body)
+    doc = cache.get("s", "https://example.com", now=NOW)
+    assert doc.allows("/api/v1/flights", UA)[0] is False
+    assert doc.allows("/api/v10/flights", UA)[0] is True
+    assert doc.allows("/apiary", UA)[0] is True
+
+
+def test_a_bare_domain_disallow_is_read_as_the_whole_site() -> None:
+    from compliance.robots import malformed_disallow_paths
+
+    assert malformed_disallow_paths("Disallow: https://example.com") == ("/",)
+
+
+def test_normal_robots_files_produce_no_intent_rules() -> None:
+    from compliance.robots import malformed_disallow_paths
+
+    assert malformed_disallow_paths("User-agent: *\nDisallow: /air/search\n") == ()
+    assert malformed_disallow_paths("") == ()
+    assert malformed_disallow_paths(None) == ()

@@ -73,6 +73,11 @@ class RobotsDocument:
         return self.outcome in (RobotsOutcome.OK, RobotsOutcome.ABSENT, RobotsOutcome.STALE)
 
     def allows(self, path: str, user_agent: str) -> tuple[bool, str | None]:
+        """Whether ``path`` may be fetched, and which rule decided it.
+
+        Malformed full-URL Disallow rules are honoured by intent before the
+        parser is consulted - see :func:`malformed_disallow_paths`.
+        """
         """Decide whether ``path`` may be fetched, and name the rule that decided it.
 
         Returns ``(allowed, matched_rule)``. ``matched_rule`` is a short audit
@@ -90,6 +95,14 @@ class RobotsDocument:
 
         if self.body is None:
             return False, "no robots.txt body available: refusing"
+
+        for intended in malformed_disallow_paths(self.body):
+            if path == intended or path.startswith(intended.rstrip("/") + "/"):
+                return False, (
+                    f"disallowed by intent: robots.txt contains a malformed rule "
+                    f"for {intended!r} written as a full URL. A strict parser "
+                    "ignores it; we do not exploit the mistake."
+                )
 
         try:
             parser = Protego.parse(self.body)
@@ -156,6 +169,45 @@ def _write_snapshot(source_code: str, body: str, fetched_at: datetime) -> str:
     path = directory / f"{stamp}.txt"
     path.write_text(body, encoding="utf-8")
     return str(path.relative_to(REPO_ROOT))
+
+
+def malformed_disallow_paths(body: str | None) -> tuple[str, ...]:
+    """Disallow rules written as full URLs rather than paths.
+
+    RFC 9309 says a Disallow value is a path. A site that writes
+
+        Disallow: https://www.example.com/api/v1
+
+    has expressed an unmistakable intention to exclude ``/api/v1``, and a strict
+    parser honours none of it: the value is read as a path beginning ``https:``,
+    which matches nothing, so the rule silently permits exactly what it was
+    written to forbid.
+
+    SpiceJet's robots.txt does this three times - ``/api/v1``, ``/public/`` and
+    ``/externalBooking``.
+
+    Collecting from those paths because someone typed a URL where a path belonged
+    is not compliance. It is finding a loophole in a request not to crawl, and
+    for a statistic published under a ministry's name it would be indefensible.
+    So the paths are extracted and treated as disallowed regardless of what the
+    parser makes of them.
+    """
+    if not body:
+        return ()
+
+    paths: list[str] = []
+    for line in body.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        if not stripped.lower().startswith("disallow:"):
+            continue
+        value = stripped.split(":", 1)[1].strip()
+        if not value.lower().startswith(("http://", "https://")):
+            continue
+        # Take the path component of the URL that was written.
+        remainder = value.split("://", 1)[1]
+        path = "/" + remainder.split("/", 1)[1] if "/" in remainder else "/"
+        paths.append(path)
+    return tuple(paths)
 
 
 def _looks_like_html(body: str | None) -> bool:
