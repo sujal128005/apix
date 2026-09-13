@@ -113,17 +113,45 @@ def report(settings: DbSettings, database: str) -> None:
     for table, count in counts.items():
         print(f"  {table:<21} {count}")
     print()
-    print(f"  enabled sources       {enabled_sources}  (sources are opt-in; 0 is correct)")
+    # These notes describe the *current* state rather than the state this script
+    # was written in. An earlier version said "0 enabled sources is correct" and
+    # "route_weight empty by design" long after both had stopped being true -
+    # text asserting something the system no longer did, which is the same
+    # failure the audit corrections were about.
+    print(f"  enabled sources       {enabled_sources}  {_sources_note(enabled_sources)}")
     print(f"  CPI-comparable bucket {', '.join(cpi_comparable)}  (MoSPI 21-day window)")
-    print(
-        "  route_weight          empty by design - weight evidence (O-5) is unresolved and\n"
-        "                        placeholder weights are exactly what this project must not ship"
-    )
-    print(
-        "  base_period           empty by design - established in Phase 9 from real\n"
-        "                        collection dates, never invented up front"
-    )
+    print(_weights_note(counts.get("route_weight", 0)))
+    print(_base_period_note(counts.get("base_period", 0)))
     print()
+
+
+def _sources_note(enabled: int) -> str:
+    """Sources are opt-in, so zero is the correct fresh state - but not an error
+    once one has been deliberately enabled."""
+    if enabled == 0:
+        return "(opt-in; none enabled yet, which is the fresh state)"
+    return f"({enabled} deliberately enabled; each needs a recorded review)"
+
+
+def _weights_note(count: int) -> str:
+    if count == 0:
+        return (
+            "  route_weight          empty - no weight set has been built. Run the\n"
+            "                        pipeline, or supply DGCA city-pair volumes for rung 1."
+        )
+    return (
+        f"  route_weight          {count} weight(s) present. Check the evidence rung on\n"
+        "                        /routes: a rung-3 proxy is not traffic-derived weighting."
+    )
+
+
+def _base_period_note(count: int) -> str:
+    if count == 0:
+        return (
+            "  base_period           empty by design - established from real collection\n"
+            "                        dates, never invented up front"
+        )
+    return f"  base_period           {count} period(s) established from collection dates"
 
 
 def main(argv: list[str] | None = None) -> int:

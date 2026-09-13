@@ -12,10 +12,15 @@ CURRENT.
 Runs until interrupted. One run per day at 06:00 IST, one node at a time via a
 database advisory lock, missed runs coalesced rather than stampeded.
 
-**In development this collects through the mock adapter.** In production the
-demo tooling refuses to load, so this process will run and collect nothing until
-a real source is configured - which is correct, and the Operations page will
-report the staleness rather than hiding it.
+Collects from whichever sources are **enabled and reviewed**. With Akasa enabled
+that is real fares; with no source enabled it runs and collects nothing, and the
+Operations page reports the staleness rather than hiding it.
+
+It does **not** fall back to the mock adapter. An earlier version did, which
+would have meant a production scheduler quietly filling the database with
+synthetic observations the moment a real source failed - exactly the path from
+generated data to a published figure that the rest of this project is built to
+prevent.
 """
 
 from __future__ import annotations
@@ -43,6 +48,10 @@ logging.basicConfig(
 logger = logging.getLogger("apix.scheduler.main")
 
 _running = True
+
+#: Sources this scheduler knows how to collect from. A source enabled in the
+#: database without an adapter here is skipped and logged, not guessed at.
+_SUPPORTED_SOURCES = frozenset({"akasa_ibe"})
 
 
 def _stop(signum: int, frame: FrameType | None) -> None:

@@ -21,6 +21,14 @@ APIx is the collection and index layer that makes that visible: daily, route-lev
 across six booking horizons, with every published number traceable to an individual
 fare quote.
 
+**Collecting live.** Since 13 September 2026 APIx has collected real fares from
+Akasa Air's availability endpoint, through the compliance gate, with full
+decomposition into base fare, user development fee, statutory levies and tax.
+Those observations carry `LIVE_COLLECTED` provenance and are marked as a
+prototype source: Akasa's booking engine serves no robots.txt, which the gate
+reads as unrestricted under RFC 9309 — and absence of a prohibition is not
+permission. An agreement is the ask in `docs/DATA-REQUEST.md`.
+
 It is not a replacement for CPI, and it does not replicate MoSPI's estimator.
 APIx adopts the **CPI 2024 compilation framework** — Jevons short at the
 elementary level, Young / Modified Laspeyres above it — and applies it to a
@@ -252,7 +260,8 @@ Stated here rather than left to be discovered.
 
 | Limitation | Status |
 |---|---|
-| No live transacted-price source; all observations are `SIMULATED_DEMO` | **Amadeus Self-Service was decommissioned 17 Jul 2026**; Tier 2 is now the path |
+| Live collection is from **one carrier**, Akasa Air | The other ten sources checked either disallow collection or could not be reached. `docs/evidence/O8-source-permissions.md` |
+| Akasa collection rests on **absence of a robots.txt**, not on permission | Adequate for a prototype; an official statistic needs an agreement |
 | **Route weighting is a proxy.** Derived from AAI airport throughput (evidence rung 3), not DGCA city-pair traffic. Overstates Delhi and Mumbai, whose figures include international passengers | Open item O-5 — still the largest weakness |
 | No headline index is ever published | By design, while data is simulated |
 | Index **levels** not comparable with CPI — only movements | Permanent, by construction |

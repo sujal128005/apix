@@ -199,7 +199,7 @@ def main() -> int:
         result = runner.run(session, plan, now=datetime.now(UTC))
         session.flush()
 
-        written = _store(session, result, source, plan)
+        written = store_observations(session, result, plan)
         session.commit()
 
         print(f"\n  collected {result.collected} of {len(plan)} request(s)")
@@ -223,8 +223,15 @@ def main() -> int:
     return 0
 
 
-def _store(session: Session, result: object, source: Source, plan: list[CollectionSpec]) -> int:
-    """Normalise collected raw quotes into observations, preserving lineage."""
+def store_observations(
+    session: Session, result: object, plan: list[CollectionSpec]
+) -> int:
+    """Normalise collected raw quotes into observations, preserving lineage.
+
+    Shared with the scheduler, so a scheduled run and a manual one store exactly
+    the same thing. Two code paths writing observations would eventually diverge,
+    and the one nobody watches would be the one that drifted.
+    """
     lookup = {(s.route_id, s.bucket_id): s for s in plan}
     written = 0
 
@@ -248,7 +255,7 @@ def _store(session: Session, result: object, source: Source, plan: list[Collecti
                     raw_quote_id=raw.id,
                     route_id=spec.route_id,
                     bucket_id=spec.bucket_id,
-                    source_id=source.id,
+                    source_id=outcome.spec.source_id,
                     carrier=fields.carrier,
                     flight_no=fields.flight_no,
                     lead_time_days=spec.lead_time_days,

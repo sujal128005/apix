@@ -87,11 +87,18 @@ real.
 
 ---
 
-## C0d. A real source, built and not enabled
+## C0d. A real source, now collecting
 
 **13 September 2026.** Browser-based discovery located Akasa Air's availability
 endpoint, and an adapter is built and tested against a real captured response.
-It is **not enabled**.
+**Enabled on 13 September 2026.** The first live run collected **84 real fares**
+across six requests, every one through the compliance gate, stored with
+`LIVE_COLLECTED` provenance and full lineage back to the compliance decision
+that permitted the request.
+
+The index reported no routes on that first day, which is correct rather than a
+fault: a chained index needs a predecessor, so day one initialises each stratum
+and measures nothing. Movements begin on the second day of collection.
 
 Two things that capture caught, both of which would have produced a wrong index:
 
@@ -110,8 +117,7 @@ said nothing about the host that actually serves fares. That host serves **no
 robots.txt at all**, which our gate reads as unrestricted. Correct under RFC
 9309, and not the same as permission.
 
-The adapter therefore reports `fit_for_official_statistic: false` in its own
-diagnostics, and Akasa is listed in `docs/DATA-REQUEST.md` as a source to seek
+The adapter reports `fit_for_official_statistic: false` in its own diagnostics, and Akasa is listed in `docs/DATA-REQUEST.md` as a source to seek
 an agreement with — a conversation about consent rather than feasibility, since
 the integration already works.
 
