@@ -72,6 +72,28 @@ makes the two **directly** comparable rather than approximately so.
 rather than a daily index — but it is the series PS 26056's back-testing
 requirement assumes exists, and it would make that requirement satisfiable.
 
+### 4b. Akasa Air — an agreement we can go to them with
+
+Discovery on 13 September 2026 found Akasa's availability endpoint returns
+structured JSON with a **complete fare decomposition** — base fare, user
+development fee, aviation security fee, regional connectivity levy and tax,
+each itemised by code. That is better than PS 26056 asks for and better than
+anything else located.
+
+An adapter is built and tested against a real captured response
+(`packages/collector/adapters/akasa.py`, 16 tests).
+
+**It is not enabled, and it should not be enabled for an official statistic
+without an agreement.** The endpoint is Akasa's internal booking engine, on a
+host that serves no robots.txt at all. Our compliance gate reads that absence as
+unrestricted, which is correct under RFC 9309 and is *not* the same as
+permission: nobody publishes a robots.txt for a backend API because nobody
+expected it to be crawled.
+
+So the ask is narrow and concrete: **approach Akasa for permission to query
+this endpoint at low volume for statistical purposes.** A working integration
+already exists, so the conversation is about consent rather than feasibility.
+
 ### 5. Airline tariff sheets furnished under ATC 02/2010
 
 Airlines already furnish these to DGCA monthly. They are **fare bands, not

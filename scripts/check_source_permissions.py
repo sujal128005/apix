@@ -75,6 +75,16 @@ SOURCES: tuple[SourceCheck, ...] = (
         ("/", "/flight-availability"),
     ),
     SourceCheck("akasa_web", "Akasa Air", 3, "https://www.akasaair.com", ("/",)),
+    # The booking engine sits on a **different host** from the marketing site,
+    # and robots.txt is per-origin. Discovery on 13 September found fares served
+    # by prod-bl.qp.akasaair.com, so permission established for www.akasaair.com
+    # said nothing at all about the host that actually serves them. Checked
+    # separately because it is a separate question.
+    SourceCheck(
+        "akasa_ibe", "Akasa Air (booking engine)", 3,
+        "https://prod-bl.qp.akasaair.com",
+        ("/", "/api/ibe/availability/search"),
+    ),
     SourceCheck(
         "spicejet_web", "SpiceJet", 3, "https://www.spicejet.com",
         # All three named in their robots.txt, as malformed full-URL rules.
@@ -202,6 +212,12 @@ def _write_evidence(
         "rest. That inference became documentation and was repeated for weeks. A spot",
         "check found SpiceJet's robots.txt largely permissive, so every source is now",
         "checked rather than assumed.",
+        "",
+        "**A permitted host is not the host that serves fares.** robots.txt is",
+        "per-origin. Airline booking engines commonly run on a separate host from",
+        "the marketing site - Akasa's fares come from `prod-bl.qp.akasaair.com`,",
+        "not `www.akasaair.com` - and permission established for one says nothing",
+        "about the other. Both are listed below.",
         "",
         "**A permitted path is not a known path.** An earlier run of this script",
         "tested invented paths and reported Air India Express as permitting fare",

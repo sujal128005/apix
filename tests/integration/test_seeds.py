@@ -160,10 +160,15 @@ def test_lambda_is_uniform_and_stored_as_decimal(app_session: Session) -> None:
 # ---------------------------------------------------------------------------
 # sources
 # ---------------------------------------------------------------------------
-def test_eighteen_sources_are_registered(app_session: Session) -> None:
+def test_nineteen_sources_are_registered(app_session: Session) -> None:
     codes = set(app_session.execute(select(Source.code)).scalars())
     assert codes == {entry.code for entry in source_seed.SOURCES}
-    assert len(codes) == 18
+    assert len(codes) == 19, (
+        "18 from build brief section 7, plus akasa_ibe. Akasa's fares are served "
+        "from its booking engine on a different host from the marketing site, and "
+        "robots.txt is per-origin - so it is a separate source, not an attribute "
+        "of the existing one."
+    )
 
 
 def test_every_source_is_disabled(app_session: Session) -> None:
@@ -188,6 +193,7 @@ def test_source_tiers_match_the_brief(app_session: Session) -> None:
         "spicejet_tariff",
     }
     assert by_tier[int(SourceTier.PERMITTED_CRAWL)] == {
+        "akasa_ibe",
         "indigo_web",
         "airindia_web",
         "aix_web",

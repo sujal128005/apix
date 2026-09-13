@@ -1,6 +1,6 @@
 # O-8 evidence - what each source's robots.txt actually permits
 
-Checked: 2026-09-13T06:46:23.633093+00:00
+Checked: 2026-09-13T18:01:53.563014+00:00
 User-Agent: `APIx-Research/0.1 (+https://github.com/sujal128005/apix; MoSPI SIH 2026 PS 26056)`
 
 Produced by `scripts/check_source_permissions.py`, which fetches each
@@ -11,6 +11,12 @@ using the same protego parser and user agent as the compliance gate.
 rest. That inference became documentation and was repeated for weeks. A spot
 check found SpiceJet's robots.txt largely permissive, so every source is now
 checked rather than assumed.
+
+**A permitted host is not the host that serves fares.** robots.txt is
+per-origin. Airline booking engines commonly run on a separate host from
+the marketing site - Akasa's fares come from `prod-bl.qp.akasaair.com`,
+not `www.akasaair.com` - and permission established for one says nothing
+about the other. Both are listed below.
 
 **A permitted path is not a known path.** An earlier run of this script
 tested invented paths and reported Air India Express as permitting fare
@@ -33,6 +39,7 @@ excluded*, pending legal review.
 | Air India | 3 | `UNAVAILABLE` | **no** | 5.0s |
 | Air India Express | 3 | `OK` | **no** | 5.0s |
 | Akasa Air | 3 | `OK` | **no** | 5.0s |
+| Akasa Air (booking engine) | 3 | `ABSENT` | yes | 5.0s |
 | SpiceJet | 3 | `OK` | **no** | 5.0s |
 | MakeMyTrip | 4 | `UNAVAILABLE` | **no** | 5.0s |
 | Goibibo | 4 | `OK` | yes | 5.0s |
@@ -69,7 +76,7 @@ excluded*, pending legal review.
 
 - `https://www.airindiaexpress.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `05206b5dfa0a662c8800235342601117f0059b939628459796cf040c56e7ca03`
-- snapshot: `data\reference\robots-snapshots\aix_web\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\aix_web\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -104,7 +111,7 @@ Sitemap: https://www.airindiaexpress.com/sitemap.xml
 
 - `https://www.akasaair.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `8679bca50522a4ba74ae634b99bc25ba121838fb61e6649964e3a9ce5a4d68b2`
-- snapshot: `data\reference\robots-snapshots\akasa_web\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\akasa_web\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -122,11 +129,23 @@ Sitemap: https://www.akasaair.com/book-flight-tickets/sitemap_index.xml
 
 </details>
 
+### Akasa Air (booking engine) (`akasa_ibe`, tier 3)
+
+- `https://prod-bl.qp.akasaair.com/robots.txt` &rarr; HTTP 404, outcome `ABSENT`
+- sha256: `None`
+- snapshot: `None`
+- declared crawl-delay: None
+
+| Path | Verdict | Rule applied |
+|---|---|---|
+| `/` | allowed | no robots.txt published: no restrictions to apply |
+| `/api/ibe/availability/search` | allowed | no robots.txt published: no restrictions to apply |
+
 ### SpiceJet (`spicejet_web`, tier 3)
 
 - `https://www.spicejet.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `f9bece01c38061a8f92eb25bc23f2827a40befc98af496983c638ac559851b67`
-- snapshot: `data\reference\robots-snapshots\spicejet_web\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\spicejet_web\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -190,7 +209,7 @@ Sitemap: https://www.spicejet.com/sitemap.xml
 
 - `https://www.goibibo.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `788921307bc5658818c741caeb562de22a770fa5f02669cb1f10338410ad4e5c`
-- snapshot: `data\reference\robots-snapshots\goibibo\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\goibibo\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -363,7 +382,7 @@ Disa
 
 - `https://www.easemytrip.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `9c3d331b3f13a99e07e10c6902c1a11a5bf1f0a52c48cef955a8aab47f3a72e3`
-- snapshot: `data\reference\robots-snapshots\easemytrip\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\easemytrip\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -403,7 +422,7 @@ Sitemap: https://www.easemytrip.com/sitemap.xml
 
 - `https://www.cleartrip.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `8545b00fbfbbb7148f4ce8e794795da86a7397f80259962e3733bafd0beabc17`
-- snapshot: `data\reference\robots-snapshots\cleartrip\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\cleartrip\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |
@@ -502,7 +521,7 @@ Sitemap: https://www.cleartrip.com/hotels/seo-sitemap/hotel-sitemap-index.xml
 
 - `https://www.ixigo.com/robots.txt` &rarr; HTTP 200, outcome `OK`
 - sha256: `da8676fa944bbeae41cc121023aa57540ad920c05e06c3a91b86e8f0ee39d055`
-- snapshot: `data\reference\robots-snapshots\ixigo\20260913T064623Z.txt`
+- snapshot: `data\reference\robots-snapshots\ixigo\20260913T180153Z.txt`
 - declared crawl-delay: None
 
 | Path | Verdict | Rule applied |

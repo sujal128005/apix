@@ -97,6 +97,17 @@ SOURCES: tuple[SourceSeed, ...] = (
         "airline_tariff_doc_v1",
     ),
     # Tier 3 - permitted crawl. One adapter reads all five airline sites.
+    # Akasa's fares come from its booking engine, on a different host from the
+    # marketing site. Registered separately because robots.txt is per-origin:
+    # permission established for www.akasaair.com says nothing about the host
+    # that actually serves fares. Ships disabled, like every source.
+    SourceSeed(
+        "akasa_ibe",
+        "Akasa Air — Availability API",
+        SourceTier.PERMITTED_CRAWL,
+        Transport.API,
+        "akasa_ibe_v1",
+    ),
     SourceSeed(
         "indigo_web",
         "IndiGo — Website",

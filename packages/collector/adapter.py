@@ -83,6 +83,13 @@ class AdapterRequest:
     params: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
     method: str = "GET"
+    body: str | None = None
+    """Request body, for sources that search by POST rather than by query string.
+
+    Added when the first real source turned out to be a POST endpoint. The gate
+    still evaluates ``path`` and nothing else: robots.txt governs paths, not
+    payloads, and a body that changed which resource was fetched would be a path
+    in disguise."""
 
 
 @dataclass(frozen=True, slots=True)

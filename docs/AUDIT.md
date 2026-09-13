@@ -87,6 +87,36 @@ real.
 
 ---
 
+## C0d. A real source, built and not enabled
+
+**13 September 2026.** Browser-based discovery located Akasa Air's availability
+endpoint, and an adapter is built and tested against a real captured response.
+It is **not enabled**.
+
+Two things that capture caught, both of which would have produced a wrong index:
+
+**A neighbouring airport.** Akasa's site sends `searchOriginMacs: true`, which
+expands `DEL` to the Delhi metropolitan area and returns departures from **DXN,
+Noida International**. Pooled into a DEL–BOM index those are a different airport
+with a different catchment. The adapter disables the flag *and* rejects any
+journey whose stations differ from those requested — the first version claimed
+the second guarantee in a comment and did not implement it, and a fixture replay
+showed DXN fares passing straight through.
+
+**Permission is not what it appeared.** The booking engine runs on
+`prod-bl.qp.akasaair.com`, a different host from the marketing site. robots.txt
+is per-origin, so the permission this project established for `www.akasaair.com`
+said nothing about the host that actually serves fares. That host serves **no
+robots.txt at all**, which our gate reads as unrestricted. Correct under RFC
+9309, and not the same as permission.
+
+The adapter therefore reports `fit_for_official_statistic: false` in its own
+diagnostics, and Akasa is listed in `docs/DATA-REQUEST.md` as a source to seek
+an agreement with — a conversation about consent rather than feasibility, since
+the integration already works.
+
+---
+
 ## C0c. Phase 22–23 — dissemination and scale
 
 **Dissemination (Phase 22).** A dataset definition — dimensions, codelists,
