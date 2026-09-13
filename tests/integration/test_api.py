@@ -215,11 +215,25 @@ def test_fares_fall_as_the_booking_horizon_lengthens(client: TestClient) -> None
 
     If booking further ahead were not cheaper, a lead-time-aware index would
     have nothing to add over a single monthly price collection.
+
+    Compares the shortest and longest horizons **actually collected**, rather
+    than assuming T1 and T45 are always present. The demo generator produced all
+    six windows, so assuming them was safe until real collection began - live
+    runs collect whatever was asked for, and partial coverage is the normal
+    case, not a fault.
     """
-    buckets = {b["bucket"]: b for b in client.get("/api/v1/lead-time-profile").json()["data"]["buckets"]}
-    if not buckets:
-        pytest.skip("no observations collected in this environment")
-    assert buckets["T1"]["mean_fare"] > buckets["T45"]["mean_fare"]
+    buckets = client.get("/api/v1/lead-time-profile").json()["data"]["buckets"]
+    if len(buckets) < 2:
+        pytest.skip("fewer than two advance-purchase windows collected")
+
+    by_days = sorted(buckets, key=lambda b: b["days"])
+    nearest, furthest = by_days[0], by_days[-1]
+
+    assert nearest["mean_fare"] > furthest["mean_fare"], (
+        f"{nearest['bucket']} ({nearest['days']}d) at {nearest['mean_fare']:.0f} is not "
+        f"dearer than {furthest['bucket']} ({furthest['days']}d) at "
+        f"{furthest['mean_fare']:.0f}"
+    )
 
 
 def test_the_profile_is_never_called_an_elasticity(client: TestClient) -> None:
