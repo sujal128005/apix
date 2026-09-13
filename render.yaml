@@ -1,0 +1,52 @@
+# Render blueprint for APIx.
+#
+# Chosen because it provides managed PostgreSQL alongside the service. The app
+# is a normal long-running process with a database; a serverless platform would
+# need a connection pooler in front and would lose the scheduler entirely, since
+# nothing stays resident to run it.
+#
+# Any container host works. The only requirements are PostgreSQL 16, a
+# persistent process, and the environment variables below.
+
+services:
+  - type: web
+    name: apix
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/v1/ready
+    envVars:
+      - key: APIX_ENV
+        value: production
+      # Required. The compliance gate refuses to collect anonymously: every
+      # request must carry a contact address a site operator could reach.
+      - key: APIX_CONTACT_URL
+        sync: false
+      - key: APIX_CORS_ORIGINS
+        sync: false
+      - key: APIX_DB_HOST
+        fromDatabase: {name: apix-db, property: host}
+      - key: APIX_DB_PORT
+        fromDatabase: {name: apix-db, property: port}
+      - key: APIX_DB_NAME
+        fromDatabase: {name: apix-db, property: database}
+      - key: APIX_DB_SUPERUSER
+        fromDatabase: {name: apix-db, property: user}
+      - key: APIX_DB_SUPERUSER_PASSWORD
+        fromDatabase: {name: apix-db, property: password}
+      # The application and migrator roles are created by migration 0003. Their
+      # passwords are set here rather than defaulted: production refuses to fall
+      # back to development credentials.
+      - key: APIX_MIGRATOR_USER
+        value: apix_migrator
+      - key: APIX_MIGRATOR_PASSWORD
+        generateValue: true
+      - key: APIX_APP_USER
+        value: apix_app
+      - key: APIX_APP_PASSWORD
+        generateValue: true
+
+databases:
+  - name: apix-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"

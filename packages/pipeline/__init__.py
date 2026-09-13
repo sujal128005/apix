@@ -15,6 +15,13 @@ from pipeline.backtest import (
     compare_movements,
     monthly_average,
 )
+from pipeline.contribution import (
+    ContributionEstimate,
+    ScenarioInput,
+    ScenarioResult,
+    estimate_contribution,
+    simulate_scenario,
+)
 from pipeline.dissemination import (
     APIX_DATASET,
     Codelist,
@@ -24,6 +31,12 @@ from pipeline.dissemination import (
     to_csv,
     to_json,
     to_sdmx_structure,
+)
+from pipeline.frequency import (
+    Frequency,
+    PeriodIndex,
+    aggregate_to_frequency,
+    period_key,
 )
 from pipeline.impute import ImputationResult, StratumState, imputation_rate, impute_missing
 from pipeline.normalise import (
@@ -86,9 +99,11 @@ __all__ = [
     "Cabin",
     "Changeability",
     "Codelist",
+    "ContributionEstimate",
     "DatasetDefinition",
     "DepartureBand",
     "Dimension",
+    "Frequency",
     "ImputationResult",
     "IndexRun",
     "Measure",
@@ -96,6 +111,7 @@ __all__ = [
     "NormalisationError",
     "NormalisedFields",
     "ObservedQuote",
+    "PeriodIndex",
     "ProductSpecification",
     "PublicationError",
     "PublicationState",
@@ -103,6 +119,8 @@ __all__ = [
     "Refundability",
     "RouteOutcome",
     "RoutingType",
+    "ScenarioInput",
+    "ScenarioResult",
     "StratumKey",
     "StratumState",
     "StratumUncertainty",
@@ -112,6 +130,7 @@ __all__ = [
     "WeightSet",
     "WeightValidationError",
     "aggregate_standard_error",
+    "aggregate_to_frequency",
     "approve",
     "build_equal_weights",
     "build_from_airport_throughput",
@@ -121,15 +140,18 @@ __all__ = [
     "compute_index_for_date",
     "current_published",
     "departure_band_for",
+    "estimate_contribution",
     "group_by_stratum",
     "imputation_rate",
     "impute_missing",
     "monthly_average",
     "normalise_payload",
+    "period_key",
     "publish",
     "refresh_quality_summary",
     "revise",
     "score_quality",
+    "simulate_scenario",
     "specification_from_quote",
     "stratum_uncertainty",
     "submit_for_approval",

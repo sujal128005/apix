@@ -119,8 +119,9 @@ function barChart(bars, {height = 240, valueKey = "y", labelKey = "x", format = 
 
 function masthead(active) {
   const pages = [
-    ["/", "Home"], ["/routes", "Route Explorer"], ["/lead-time", "Lead Time"],
-    ["/quality", "Data Quality"], ["/api/v1/backtest", "Validation"],
+    ["/", "Home"], ["/routes", "Route Explorer"], ["/heatmap", "Heatmap"],
+    ["/lead-time", "Lead Time"],
+    ["/scenario", "Scenarios"], ["/quality", "Data Quality"], ["/api/v1/backtest", "Validation"],
     ["/methodology", "Methodology"], ["/operations", "Operations"],
     ["/api/docs", "API"],
   ];
@@ -260,4 +261,159 @@ function initChrome(active, lastUpdated) {
   const foot = document.getElementById("gov-footer");
   if (foot) foot.innerHTML = govFooter(lastUpdated);
   initTextSizer();
+}
+
+
+/* --- Route network map ---------------------------------------------------
+
+   Cities positioned by their real coordinates; corridors drawn as arcs between
+   them. **No national outline is drawn**, and that is deliberate rather than a
+   shortcut.
+
+   Depicting India's boundaries is legally sensitive: Government of India
+   requires maps to follow the Survey of India's official depiction, including
+   Jammu & Kashmir and Ladakh. Open datasets - Natural Earth, OpenStreetMap
+   extracts - generally do not match that depiction, and a hand-drawn outline
+   matches nothing at all. On a page styled to resemble a ministry portal, an
+   incorrect boundary would be a serious error, and it would be entirely
+   gratuitous: a fare index has no need to assert where a border runs.
+
+   A graticule gives the same orientation an outline would, without making any
+   claim. If an official Survey of India basemap is licensed for this project
+   later, it drops in here and nothing else changes.
+
+   No tile server either: a government statistics page should not route its
+   readers' requests to a third party, and a demo should not fail because a tile
+   host is slow. */
+
+const MAP_BOUNDS = {lonMin: 67.0, lonMax: 98.5, latMin: 6.5, latMax: 37.5};
+
+/* India outline, following the official Government of India depiction: Jammu &
+   Kashmir and Ladakh shown in full as Indian territory.
+
+   A **schematic locator**, not a survey product. It is traced at roughly 130
+   points, which is enough to orient a reader and nowhere near enough to be a
+   cartographic authority - and it is not offered as one. Depicting India's
+   boundaries carries legal requirements, so the depiction follows the official
+   position; if the ministry licenses a Survey of India basemap it replaces this
+   path and nothing else on the page changes.
+
+   Coordinates are (longitude, latitude) and are projected by the same function
+   as the city nodes, so outline and airports cannot drift apart. */
+const INDIA_PATH = "M 76.8,36.5 L 77.8,35.9 L 78.3,35.5 L 78.9,34.9 L 79.5,34.5 L 79.2,33.5 L 78.8,33.0 L 79.2,32.6 L 78.7,32.2 L 78.4,31.8 L 79.1,31.4 L 79.9,30.9 L 80.3,30.3 L 80.9,29.9 L 81.0,30.2 L 81.9,30.3 L 82.7,30.1 L 83.6,29.5 L 84.6,29.3 L 85.5,28.7 L 86.4,28.1 L 87.2,27.8 L 88.1,27.9 L 88.2,27.3 L 88.8,27.4 L 89.6,28.1 L 90.4,28.1 L 91.6,27.8 L 92.1,27.5 L 92.7,27.9 L 93.7,28.6 L 94.7,29.3 L 95.4,29.0 L 96.4,29.4 L 97.1,28.5 L 97.4,28.2 L 96.9,27.5 L 97.1,27.1 L 96.5,26.4 L 95.7,26.0 L 95.1,26.6 L 94.6,25.5 L 94.3,24.4 L 93.9,24.0 L 93.4,23.1 L 93.1,22.3 L 92.6,21.9 L 92.2,23.7 L 91.6,22.9 L 91.3,23.7 L 91.0,24.4 L 90.5,24.9 L 89.9,25.3 L 89.3,26.0 L 88.6,26.4 L 88.2,25.2 L 88.7,24.3 L 88.0,23.5 L 88.6,22.6 L 88.9,21.7 L 87.5,21.5 L 86.9,20.8 L 86.4,20.1 L 85.1,19.6 L 84.2,19.0 L 83.3,18.3 L 82.3,17.1 L 81.3,16.4 L 80.5,15.9 L 80.3,15.2 L 80.2,14.4 L 80.1,13.5 L 79.9,12.4 L 79.8,11.4 L 79.4,10.6 L 79.0,10.2 L 78.5,9.4 L 78.1,9.1 L 77.6,8.3 L 77.1,8.3 L 76.8,8.8 L 76.4,9.5 L 76.0,10.3 L 75.6,11.2 L 75.2,12.1 L 74.8,13.0 L 74.5,14.0 L 74.0,15.0 L 73.7,15.9 L 73.3,16.9 L 73.0,17.8 L 72.8,18.8 L 72.7,19.7 L 72.6,20.6 L 72.9,21.4 L 72.5,21.8 L 71.6,21.0 L 70.8,20.9 L 70.0,21.4 L 69.1,22.0 L 68.9,22.6 L 68.2,23.5 L 68.7,23.9 L 69.6,24.1 L 70.4,24.4 L 70.9,24.7 L 71.0,25.4 L 70.6,26.0 L 71.1,27.0 L 72.2,27.7 L 73.0,28.4 L 73.8,29.2 L 74.4,30.0 L 74.6,30.8 L 74.9,31.5 L 75.3,32.1 L 74.6,32.6 L 74.3,33.2 L 73.9,33.8 L 74.2,34.3 L 73.9,34.9 L 74.6,35.4 L 75.4,35.9 L 76.1,36.3 L 76.8,36.5 Z";
+
+function projectIndia(lat, lon, width, height, pad) {
+  const {lonMin, lonMax, latMin, latMax} = MAP_BOUNDS;
+  const x = pad + ((lon - lonMin) / (lonMax - lonMin)) * (width - pad * 2);
+  const y = pad + ((latMax - lat) / (latMax - latMin)) * (height - pad * 2);
+  return [x, y];
+}
+
+const BAND_COLOUR = {
+  SHARP_RISE: "var(--stop)",
+  RISE:       "var(--saffron)",
+  STABLE:     "var(--ink-faint)",
+  FALL:       "var(--navy-500)",
+  SHARP_FALL: "var(--ok)",
+};
+
+function indiaOutline(width, height, pad) {
+  /* Re-project every vertex through the same function the city nodes use. */
+  const projected = INDIA_PATH.replace(/([\d.]+),([\d.]+)/g, (_, lon, lat) => {
+    const [x, y] = projectIndia(parseFloat(lat), parseFloat(lon), width, height, pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return `<path d="${projected}" class="map-outline"/>`;
+}
+
+function graticule(width, height, pad) {
+  /* Meridians and parallels every 5 degrees, labelled. Orientation without a
+     boundary claim. */
+  let out = "";
+  for (let lon = 70; lon <= 95; lon += 5) {
+    const [x] = projectIndia(MAP_BOUNDS.latMin, lon, width, height, pad);
+    const [, yTop] = projectIndia(MAP_BOUNDS.latMax, lon, width, height, pad);
+    const [, yBot] = projectIndia(MAP_BOUNDS.latMin, lon, width, height, pad);
+    out += `<line class="graticule" x1="${x}" y1="${yTop}" x2="${x}" y2="${yBot}"/>`;
+    out += `<text class="graticule-label" x="${x}" y="${yBot + 14}" text-anchor="middle">${lon}°E</text>`;
+  }
+  for (let lat = 10; lat <= 30; lat += 5) {
+    const [xL, y] = projectIndia(lat, MAP_BOUNDS.lonMin, width, height, pad);
+    const [xR] = projectIndia(lat, MAP_BOUNDS.lonMax, width, height, pad);
+    out += `<line class="graticule" x1="${xL}" y1="${y}" x2="${xR}" y2="${y}"/>`;
+    out += `<text class="graticule-label" x="${xL - 6}" y="${y + 3}" text-anchor="end">${lat}°N</text>`;
+  }
+  return out;
+}
+
+function routeMap(routes, {width = 860, height = 620} = {}) {
+  if (!routes.length) {
+    return '<div class="empty">No corridor is measurable on both dates.</div>';
+  }
+
+  const pad = 46;
+  const P = (lat, lon) => projectIndia(lat, lon, width, height, pad);
+
+  /* A city takes the colour of the largest absolute movement touching it, so a
+     reader's eye lands on where something happened rather than on the busiest
+     airport. */
+  const nodes = new Map();
+  for (const r of routes) {
+    for (const end of [r.origin, r.destination]) {
+      const existing = nodes.get(end.iata);
+      const magnitude = Math.abs(r.change_pct);
+      if (!existing || magnitude > existing.magnitude) {
+        nodes.set(end.iata, {...end, magnitude, band: r.band, change: r.change_pct});
+      }
+    }
+  }
+
+  /* Arcs, not straight lines: DEL-BOM and BOM-DEL are different corridors with
+     different indices, and drawn straight they would overprint. */
+  const arcs = routes.map(r => {
+    const [x1, y1] = P(r.origin.lat, r.origin.lon);
+    const [x2, y2] = P(r.destination.lat, r.destination.lon);
+    const dx = x2 - x1, dy = y2 - y1;
+    const distance = Math.hypot(dx, dy) || 1;
+    const bow = Math.min(distance * 0.18, 52);
+    const cx = (x1 + x2) / 2 - (dy / distance) * bow;
+    const cy = (y1 + y2) / 2 + (dx / distance) * bow;
+    const weight = Math.min(1 + Math.abs(r.change_pct) * 0.3, 5.5);
+    const move = (r.change_pct >= 0 ? "+" : "") + r.change_pct.toFixed(2);
+    return `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none"
+              stroke="${BAND_COLOUR[r.band]}" stroke-width="${weight}"
+              stroke-linecap="round" opacity="0.5">
+              <title>${esc(r.route)} · ${move}% · index ${idx(r.index_value, 2)}</title>
+            </path>`;
+  }).join("");
+
+  const points = [...nodes.values()].map(n => {
+    const [x, y] = P(n.lat, n.lon);
+    const radius = 4 + Math.min(n.magnitude * 0.5, 7);
+    const move = (n.change >= 0 ? "+" : "") + n.change.toFixed(2);
+    return `<circle cx="${x}" cy="${y}" r="${radius + 6}" fill="${BAND_COLOUR[n.band]}" opacity="0.13"/>
+            <circle cx="${x}" cy="${y}" r="${radius}" fill="${BAND_COLOUR[n.band]}"
+                    stroke="#fff" stroke-width="1.5">
+              <title>${esc(n.city)} (${esc(n.iata)}) · largest move ${move}%</title>
+            </circle>
+            <text x="${x + radius + 6}" y="${y + 4}" class="map-label">${esc(n.iata)}</text>`;
+  }).join("");
+
+  return `<div class="chart map"><svg viewBox="0 0 ${width} ${height}" role="img"
+      aria-label="Airfare movement between Indian cities, positioned by coordinate">
+      ${indiaOutline(width, height, pad)}${graticule(width, height, pad)}${arcs}${points}
+    </svg></div>`;
+}
+
+function movementLegend() {
+  const bands = [
+    ["SHARP_RISE", "Sharp rise", "5% or more"],
+    ["RISE", "Rise", "1% to 5%"],
+    ["STABLE", "Stable", "within 1%"],
+    ["FALL", "Fall", "-1% to -5%"],
+    ["SHARP_FALL", "Sharp fall", "-5% or less"],
+  ];
+  return `<div class="legend">${bands.map(([band, label, range]) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${BAND_COLOUR[band]}"></span>
+     ${label} <span class="legend-range">${range}</span></span>`).join("")}</div>`;
 }

@@ -18,7 +18,7 @@ import logging
 import os
 import time
 from collections import defaultdict, deque
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -318,6 +318,125 @@ def index_routes(limit: int = Query(default=100, le=500)) -> dict[str, Any]:
         }
 
 
+#: Airport coordinates for the route map. Decimal degrees, from published
+#: aerodrome locations. Kept here rather than in the database because they are a
+#: presentation concern - the index does not care where an airport is.
+AIRPORT_COORDS: dict[str, tuple[float, float, str]] = {
+    "DEL": (28.5562, 77.1000, "New Delhi"),
+    "BOM": (19.0896, 72.8656, "Mumbai"),
+    "BLR": (13.1986, 77.7066, "Bengaluru"),
+    "MAA": (12.9941, 80.1709, "Chennai"),
+    "CCU": (22.6547, 88.4467, "Kolkata"),
+    "HYD": (17.2403, 78.4294, "Hyderabad"),
+    "AMD": (23.0772, 72.6347, "Ahmedabad"),
+    "COK": (10.1520, 76.4019, "Kochi"),
+    "PNQ": (18.5793, 73.9089, "Pune"),
+    "GAU": (26.1061, 91.5859, "Guwahati"),
+    "GOI": (15.3808, 73.8314, "Goa"),
+    "JAI": (26.8242, 75.8122, "Jaipur"),
+    "LKO": (26.7606, 80.8893, "Lucknow"),
+    "TRV": (8.4821, 76.9201, "Thiruvananthapuram"),
+    "IXC": (30.6735, 76.7885, "Chandigarh"),
+}
+
+
+@app.get("/api/v1/routes/map", tags=["routes"])
+def route_map(days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
+    """Route-level movement over a window, with coordinates for mapping.
+
+    Compares the latest index for each route against its value `days` earlier.
+    Routes without both endpoints are omitted rather than shown at zero: a route
+    we could not measure is not a route that did not move, and colouring it
+    neutral would say the wrong thing on a map where colour is the whole message.
+    """
+    with _Session() as session:
+        latest = session.execute(
+            sa.select(sa.func.max(IndexObservation.obs_date)).where(
+                IndexObservation.level == IndexLevel.ROUTE
+            )
+        ).scalar_one_or_none()
+        if latest is None:
+            return {"data": {"as_of": None, "comparison_date": None, "routes": []},
+                    "meta": _meta(session)}
+
+        earlier = latest - timedelta(days=days)
+        rows = session.execute(
+            sa.select(
+                Route.code,
+                IndexObservation.obs_date,
+                IndexObservation.index_value,
+            )
+            .join(Route, Route.id == IndexObservation.ref_id)
+            .where(IndexObservation.level == IndexLevel.ROUTE)
+            .where(IndexObservation.obs_date.in_([latest, earlier]))
+        ).all()
+
+        by_route: dict[str, dict[date, Decimal]] = {}
+        for code, obs_date, value in rows:
+            by_route.setdefault(code, {})[obs_date] = value
+
+        routes: list[dict[str, Any]] = []
+        for code, values in sorted(by_route.items()):
+            if latest not in values or earlier not in values:
+                continue
+            origin, destination = code.split("-")
+            if origin not in AIRPORT_COORDS or destination not in AIRPORT_COORDS:
+                continue
+
+            now_value, then_value = values[latest], values[earlier]
+            change = (now_value - then_value) / then_value * 100
+            o_lat, o_lon, o_city = AIRPORT_COORDS[origin]
+            d_lat, d_lon, d_city = AIRPORT_COORDS[destination]
+
+            routes.append({
+                "route": code,
+                "origin": {"iata": origin, "city": o_city, "lat": o_lat, "lon": o_lon},
+                "destination": {"iata": destination, "city": d_city, "lat": d_lat, "lon": d_lon},
+                "index_value": _decimal(now_value),
+                "previous_index_value": _decimal(then_value),
+                "change_pct": round(float(change), 2),
+                "band": _movement_band(float(change)),
+            })
+
+        rising = sum(1 for r in routes if r["change_pct"] > 0)
+        return {
+            "data": {
+                "as_of": latest.isoformat(),
+                "comparison_date": earlier.isoformat(),
+                "window_days": days,
+                "routes": routes,
+                "corridors_rising": rising,
+                "corridors_falling": len(routes) - rising,
+                "note": (
+                    "Routes measurable on both dates only. A route omitted here is one "
+                    "we could not measure, not one that did not move."
+                ),
+            },
+            "meta": _meta(session),
+        }
+
+
+def _movement_band(change_pct: float) -> str:
+    """Five bands, symmetric about zero.
+
+    Thresholds are a presentation choice and are stated on the page: a map whose
+    colour scale is invisible invites a reader to infer severity that was never
+    claimed.
+    """
+    if change_pct >= 5:
+        return "SHARP_RISE"
+    if change_pct >= 1:
+        return "RISE"
+    if change_pct > -1:
+        return "STABLE"
+    if change_pct > -5:
+        return "FALL"
+    return "SHARP_FALL"
+
+
+# NB: declared *after* /api/v1/routes/map. FastAPI matches in declaration order,
+# so a parameterised path registered first would capture "map" as a route code -
+# which it did, returning "No route 'map'" until this was reordered.
 @app.get("/api/v1/routes/{code}", tags=["routes"])
 def route_detail(code: str) -> dict[str, Any]:
     """One route: its weight and the evidence behind it, plus its index history.
@@ -457,6 +576,253 @@ def lead_time_profile(route: str | None = None) -> dict[str, Any]:
                 ],
             },
             "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/index/frequency", tags=["index"])
+def index_by_frequency(
+    freq: str = Query(default="D", pattern="^[DWM]$"),
+    level: str = Query(default=IndexLevel.ROUTE),
+    route: str | None = None,
+) -> dict[str, Any]:
+    """The index at daily, weekly or monthly frequency.
+
+    PS 26056 asks for all three. Weekly and monthly are **averages of the daily
+    values in the period**, not the value on the last day: CPI is a monthly
+    average concept, and a period-end snapshot would answer a different question
+    while carrying the day-of-week effect the average exists to absorb.
+    """
+    from pipeline.frequency import Frequency, aggregate_to_frequency
+
+    with _Session() as session:
+        statement = (
+            sa.select(IndexObservation.obs_date, IndexObservation.index_value)
+            .where(IndexObservation.level == level)
+            .order_by(IndexObservation.obs_date)
+        )
+        if route:
+            route_row = session.execute(
+                sa.select(Route).where(Route.code == route.upper())
+            ).scalar_one_or_none()
+            if route_row is None:
+                raise HTTPException(status_code=404, detail=f"No route {route!r}.")
+            statement = statement.where(IndexObservation.ref_id == route_row.id)
+
+        rows = session.execute(statement).all()
+
+        # At ROUTE level with no route named, average across routes per day so a
+        # frequency series is well defined rather than interleaving routes.
+        if level == IndexLevel.ROUTE and not route:
+            by_day: dict[date, list[Decimal]] = {}
+            for obs_date, value in rows:
+                by_day.setdefault(obs_date, []).append(value)
+            daily = [
+                (day, sum(values, Decimal(0)) / len(values))
+                for day, values in sorted(by_day.items())
+            ]
+        else:
+            daily = [(obs_date, value) for obs_date, value in rows]
+
+        periods = aggregate_to_frequency(daily, Frequency(freq))
+
+        return {
+            "data": {
+                "frequency": freq,
+                "level": level,
+                "route": route.upper() if route else None,
+                "series": [
+                    {
+                        "period": p.label,
+                        "period_start": p.period_start.isoformat(),
+                        "period_end": p.period_end.isoformat(),
+                        "index_value": _decimal(p.index_value),
+                        "movement": _decimal(p.movement),
+                        "movement_pct": _decimal(p.movement_pct),
+                        "days_observed": p.days_observed,
+                        "days_in_period": p.days_in_period,
+                        "coverage_pct": _decimal(p.coverage_pct),
+                        "is_complete": p.is_complete,
+                    }
+                    for p in periods
+                ],
+                "note": (
+                    "Weekly and monthly values are the arithmetic mean of daily index "
+                    "values within the period, not the value on the last day. Periods "
+                    "with partial collection are flagged rather than suppressed."
+                ),
+            },
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/cpi-contribution", tags=["index"])
+def cpi_contribution(
+    movement_pct: float | None = Query(default=None),
+    days: int = Query(default=30, ge=1, le=365),
+) -> dict[str, Any]:
+    """What an airfare movement contributes to headline CPI, as a range.
+
+    A **range**, not a figure. APIx does not know the CPI weight of airfare, and
+    the Transport division weight of 8.796% is not a substitute - that division
+    covers rail, bus, taxi, fuel and vehicles too, and using it would overstate
+    air travel by roughly an order of magnitude.
+
+    A single number here would be precise and unfounded, and precision is
+    exactly what makes an unfounded number persuasive.
+    """
+    from pipeline.contribution import WEIGHT_ASSUMPTION, estimate_contribution
+
+    with _Session() as session:
+        if movement_pct is None:
+            rows = session.execute(
+                sa.select(IndexObservation.obs_date, IndexObservation.index_value)
+                .where(IndexObservation.level == IndexLevel.ROUTE)
+                .order_by(IndexObservation.obs_date)
+            ).all()
+            by_day: dict[date, list[Decimal]] = {}
+            for obs_date, value in rows:
+                by_day.setdefault(obs_date, []).append(value)
+            series = [
+                (day, sum(v, Decimal(0)) / len(v)) for day, v in sorted(by_day.items())
+            ]
+            if len(series) < 2:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Not enough index history to measure a movement.",
+                )
+            latest_day, latest_value = series[-1]
+            cutoff = latest_day - timedelta(days=days)
+            earlier = [(d, v) for d, v in series if d <= cutoff] or [series[0]]
+            _, base_value = earlier[-1]
+            movement = (latest_value - base_value) / base_value * 100
+        else:
+            movement = Decimal(str(movement_pct))
+
+        estimate = estimate_contribution(movement)
+
+        return {
+            "data": {
+                "airfare_movement_pct": _decimal(estimate.airfare_movement_pct),
+                "window_days": days if movement_pct is None else None,
+                "contribution_bps": {
+                    "low": _decimal(estimate.min_bps),
+                    "high": _decimal(estimate.max_bps),
+                },
+                "assumed_airfare_weight_pct": {
+                    "low": _decimal(estimate.min_weight_pct),
+                    "high": _decimal(estimate.max_weight_pct),
+                },
+                "transport_division_upper_bound_bps": _decimal(
+                    estimate.transport_division_bps
+                ),
+                "is_material": estimate.is_material,
+                "summary": estimate.describe(),
+                "assumption": WEIGHT_ASSUMPTION,
+            },
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/scenario", tags=["index"])
+def scenario(
+    fuel_change_pct: float = Query(default=0.0, ge=-100, le=200),
+    demand_change_pct: float = Query(default=0.0, ge=-100, le=200),
+    direct_fare_shock_pct: float = Query(default=0.0, ge=-100, le=200),
+) -> dict[str, Any]:
+    """A fuel, demand or fare shock, translated to an estimated CPI contribution.
+
+    A transparent arithmetic model with three additive channels and visible
+    coefficients - not an econometric forecast, and it does not pretend to be.
+    Its value is that a reader can see which assumption produced which number.
+
+    Caveats travel with the result rather than sitting beside it, so they cannot
+    be separated from the figure they qualify.
+    """
+    from pipeline.contribution import ScenarioInput, simulate_scenario
+
+    result = simulate_scenario(
+        ScenarioInput(
+            fuel_change_pct=Decimal(str(fuel_change_pct)),
+            demand_change_pct=Decimal(str(demand_change_pct)),
+            direct_fare_shock_pct=Decimal(str(direct_fare_shock_pct)),
+        )
+    )
+
+    with _Session() as session:
+        return {
+            "data": {
+                "inputs": {
+                    "fuel_change_pct": fuel_change_pct,
+                    "demand_change_pct": demand_change_pct,
+                    "direct_fare_shock_pct": direct_fare_shock_pct,
+                    "fuel_share_of_fare": _decimal(result.inputs.fuel_share),
+                    "pass_through": _decimal(result.inputs.pass_through),
+                    "demand_elasticity": _decimal(result.inputs.demand_elasticity),
+                },
+                "fare_change_pct": {
+                    "from_fuel": _decimal(result.fare_change_from_fuel_pct),
+                    "from_demand": _decimal(result.fare_change_from_demand_pct),
+                    "direct": _decimal(result.direct_fare_shock_pct),
+                    "total": _decimal(result.total_fare_change_pct),
+                },
+                "cpi_contribution_bps": {
+                    "low": _decimal(result.contribution.min_bps),
+                    "high": _decimal(result.contribution.max_bps),
+                },
+                "summary": result.contribution.describe(),
+                "caveats": list(result.caveats),
+            },
+            "meta": _meta(session),
+        }
+
+
+@app.get("/api/v1/anomalies", tags=["quality"])
+def anomalies(limit: int = Query(default=100, le=1000)) -> dict[str, Any]:
+    """Observations the screen flagged as extreme but kept in the index.
+
+    Under methodology 1.1.0 an extreme fare is counted, not discarded - a
+    last-seat price is the phenomenon this index exists to observe, and a
+    statistical screen cannot tell one from a data error. Surfacing them here is
+    the other half of that decision: a reader can see when a movement was driven
+    by one unusual fare rather than by the market.
+    """
+    from schemas.models.derived import CleaningEvent
+
+    with _Session() as session:
+        rows = session.execute(
+            sa.select(CleaningEvent, NormalisedQuote, Route.code)
+            .join(NormalisedQuote, NormalisedQuote.id == CleaningEvent.quote_id)
+            .join(Route, Route.id == NormalisedQuote.route_id)
+            .order_by(CleaningEvent.created_at.desc())
+            .limit(limit)
+        ).all()
+
+        return {
+            "data": [
+                {
+                    "collected_date": quote.collected_date.isoformat(),
+                    "route": route_code,
+                    "carrier": quote.carrier,
+                    "flight_no": quote.flight_no,
+                    "total_fare": _decimal(quote.total_fare),
+                    "rule": event.rule_id,
+                    "action": event.action,
+                    "observed": _decimal(event.observed),
+                    "threshold": _decimal(event.threshold),
+                    "reason": event.reason,
+                }
+                for event, quote, route_code in rows
+            ],
+            "meta": _meta(
+                session,
+                extra={
+                    "policy": (
+                        "Extreme observations are flagged and kept (methodology "
+                        "1.1.0). Only impossible values - outside 0.01x to 100x "
+                        "period-on-period - are removed."
+                    )
+                },
+            ),
         }
 
 
@@ -1241,9 +1607,17 @@ if STATIC_DIR.exists():
     def routes_page() -> FileResponse:
         return FileResponse(STATIC_DIR / "routes.html")
 
+    @app.get("/heatmap", include_in_schema=False)
+    def heatmap_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "heatmap.html")
+
     @app.get("/lead-time", include_in_schema=False)
     def lead_time_page() -> FileResponse:
         return FileResponse(STATIC_DIR / "lead-time.html")
+
+    @app.get("/scenario", include_in_schema=False)
+    def scenario_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "scenario.html")
 
     @app.get("/quality", include_in_schema=False)
     def quality_page() -> FileResponse:

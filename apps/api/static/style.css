@@ -328,3 +328,31 @@ select:focus, input:focus, a:focus, button:focus {
   table { font-size: .78rem; }
   th, td { padding: 6px 11px; }
 }
+
+/* --- route map ----------------------------------------------------------- */
+
+.chart.map { padding: 8px 12px 12px; }
+.map-outline {
+  fill: #f7f9fb;
+  stroke: var(--navy-500);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  opacity: .75;
+}
+.graticule { stroke: var(--border-soft); stroke-width: 1; }
+.graticule-label {
+  font-family: var(--font); font-size: .58rem; fill: var(--ink-faint);
+}
+.map-label {
+  font-family: var(--font); font-size: .62rem; font-weight: 600;
+  fill: var(--ink-soft);
+}
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  padding: 10px 16px; font-size: .74rem; color: var(--ink-soft);
+  border-top: 1px solid var(--border-soft); background: var(--panel-alt);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.legend-range { color: var(--ink-faint); }

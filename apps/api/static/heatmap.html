@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Heatmap — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-updated="">
+<div id="chrome"></div>
+
+<main id="main">
+  <section>
+    <h2>Airfare movement across India</h2>
+    <div class="body">
+      <label for="window">Compare against&nbsp;</label>
+      <select id="window">
+        <option value="1">1 day earlier</option>
+        <option value="7" selected>7 days earlier</option>
+        <option value="14">14 days earlier</option>
+        <option value="30">30 days earlier</option>
+      </select>
+      <span id="period" style="margin-left:18px;font-size:.85rem;color:var(--ink-faint)"></span>
+    </div>
+    <div id="map"><div class="empty">Loading…</div></div>
+    <div id="legend"></div>
+    <div class="meta">
+      Line thickness follows the size of the movement; colour follows its direction.
+      Corridors are drawn as arcs so both directions of a city pair stay
+      distinguishable. Thresholds are shown in the legend rather than left implicit
+      &mdash; a colour scale a reader cannot see invites them to infer a severity
+      that was never claimed.
+      <br>
+      The outline follows the official Government of India depiction, with Jammu &amp;
+      Kashmir and Ladakh shown in full as Indian territory. It is a <strong>schematic
+      locator, not a survey product</strong>: traced at around 130 points, enough to
+      orient a reader and not offered as a cartographic authority. If the ministry
+      licenses a Survey of India basemap it replaces this outline and nothing else
+      on the page changes.
+    </div>
+  </section>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Corridor detail</h2>
+    <div id="table"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Routes measurable on <em>both</em> dates only. A corridor missing here is one
+      we could not measure, not one that did not move &mdash; showing it as neutral
+      would say the wrong thing on a map where colour carries the whole message.
+    </div>
+  </section>
+</main>
+
+<div id="gov-footer"></div>
+
+<script src="/static/apix.js"></script>
+<script>
+initChrome("/heatmap", document.body.dataset.updated);
+
+async function load(days) {
+  const r = await get("/api/v1/routes/map?days=" + days);
+  const d = r.data;
+
+  if (!d.routes.length) {
+    document.getElementById("map").innerHTML =
+      '<div class="empty">No route is measurable on both dates yet.</div>';
+    document.getElementById("stats").innerHTML = "";
+    document.getElementById("table").innerHTML = "";
+    return;
+  }
+
+  document.getElementById("period").textContent =
+    `${d.as_of} compared with ${d.comparison_date}`;
+  document.getElementById("map").innerHTML = routeMap(d.routes);
+  document.getElementById("legend").innerHTML = movementLegend();
+
+  const moves = d.routes.map(x => x.change_pct);
+  const biggest = d.routes.reduce((a, b) =>
+    Math.abs(b.change_pct) > Math.abs(a.change_pct) ? b : a);
+  const mean = moves.reduce((a, b) => a + b, 0) / moves.length;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Corridors rising</div>
+      <div class="value">${d.corridors_rising}</div>
+      <div class="note">of ${d.routes.length} measured</div></div>
+    <div class="stat"><div class="label">Corridors falling</div>
+      <div class="value">${d.corridors_falling}</div>
+      <div class="note">over ${d.window_days} day(s)</div></div>
+    <div class="stat"><div class="label">Largest movement</div>
+      <div class="value">${pct(biggest.change_pct)}</div>
+      <div class="note">${esc(biggest.route)}</div></div>
+    <div class="stat"><div class="label">Mean across corridors</div>
+      <div class="value">${pct(mean)}</div>
+      <div class="note">unweighted &mdash; not the index</div></div>`;
+
+  const sorted = d.routes.slice().sort((a, b) => b.change_pct - a.change_pct);
+  document.getElementById("table").innerHTML = table([
+    {label: "Route", render: x => `<code>${esc(x.route)}</code>`},
+    {label: "From", render: x => esc(x.origin.city)},
+    {label: "To", render: x => esc(x.destination.city)},
+    {label: "Index", num: true, render: x => idx(x.index_value)},
+    {label: "Earlier", num: true, render: x => idx(x.previous_index_value)},
+    {label: "Change", num: true, render: x => pct(x.change_pct)},
+    {label: "Band", render: x => `<span class="tag ${
+      x.band.includes("RISE") ? "stop" : x.band === "STABLE" ? "off" : "live"
+    }">${esc(x.band.replace("_", " "))}</span>`},
+  ], sorted);
+}
+
+const select = document.getElementById("window");
+select.addEventListener("change", () => load(select.value));
+load(select.value).catch(() => {
+  document.getElementById("map").innerHTML =
+    '<div class="empty">Route movement is unavailable. Has the pipeline been run?</div>';
+});
+</script>
+</body>
+</html>

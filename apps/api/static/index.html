@@ -22,6 +22,37 @@
   </section>
 
   <section>
+    <h2>Index frequency &mdash; daily, weekly, monthly</h2>
+    <div class="body">
+      <label for="freq">Frequency&nbsp;</label>
+      <select id="freq">
+        <option value="D">Daily</option>
+        <option value="W" selected>Weekly</option>
+        <option value="M">Monthly</option>
+      </select>
+    </div>
+    <div id="freq-series"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Weekly and monthly values are the arithmetic mean of the daily index within
+      the period, not the value on the last day &mdash; CPI is a monthly average
+      concept, and a period-end snapshot would carry the day-of-week effect the
+      average exists to absorb. Periods with partial collection are marked rather
+      than suppressed.
+    </div>
+  </section>
+
+  <section>
+    <h2>Flagged observations</h2>
+    <div id="anomalies"><div class="empty">Loading…</div></div>
+    <div class="meta">
+      Extreme fares are kept in the index and counted, not discarded: a last-seat
+      price is the phenomenon this index exists to observe, and a statistical
+      screen cannot tell one from a data error. Listing them here lets a reader
+      see when a movement was driven by one unusual fare rather than by the market.
+    </div>
+  </section>
+
+  <section>
     <h2>Official CPI 2024 benchmark — domestic airfare (item 294, COICOP 07.3.3.1.2.01)</h2>
     <div id="benchmark"><div class="empty">Loading…</div></div>
     <div class="meta">
@@ -113,6 +144,47 @@ async function load() {
     document.getElementById("routes-meta").textContent =
       `Methodology ${r.meta.methodology_version ?? "—"} · weight set ${r.meta.weight_set_version ?? "—"} · generated ${r.meta.as_of}`;
   } catch { document.getElementById("routes").innerHTML = '<div class="empty">No index values computed yet.</div>'; }
+
+  async function loadFrequency(freq) {
+    try {
+      const f = await get("/api/v1/index/frequency?freq=" + freq);
+      document.getElementById("freq-series").innerHTML = table([
+        {label: "Period", render: x => esc(x.period)},
+        {label: "Index", num: true, render: x => idx(x.index_value)},
+        {label: "Change", num: true, render: x =>
+          x.movement_pct === null ? "—" : pct(x.movement_pct)},
+        {label: "Days observed", num: true, render: x =>
+          `${x.days_observed} / ${x.days_in_period}`},
+        {label: "Coverage", render: x => x.is_complete
+          ? '<span class="tag live">complete</span>'
+          : `<span class="tag sim">partial ${idx(x.coverage_pct, 1)}%</span>`},
+      ], f.data.series.slice().reverse());
+    } catch {
+      document.getElementById("freq-series").innerHTML =
+        '<div class="empty">No index computed yet.</div>';
+    }
+  }
+  const freqSelect = document.getElementById("freq");
+  freqSelect.addEventListener("change", () => loadFrequency(freqSelect.value));
+  await loadFrequency(freqSelect.value);
+
+  try {
+    const a = await get("/api/v1/anomalies?limit=15");
+    document.getElementById("anomalies").innerHTML = a.data.length
+      ? table([
+          {label: "Date", render: x => esc(x.collected_date)},
+          {label: "Route", render: x => `<code>${esc(x.route)}</code>`},
+          {label: "Carrier", render: x => esc(x.carrier)},
+          {label: "Flight", render: x => esc(x.flight_no)},
+          {label: "Fare", num: true, render: x => money(x.total_fare)},
+          {label: "Rule", render: x => `<span class="tag sim">${esc(x.rule)}</span>`},
+          {label: "Kept in index", render: x =>
+            x.action === "REJECT" ? "no" : "yes"},
+        ], a.data)
+      : '<div class="empty">No observation has been flagged.</div>';
+  } catch {
+    document.getElementById("anomalies").innerHTML = '<div class="empty">Unavailable.</div>';
+  }
 
   try {
     const b = await get("/api/v1/benchmark");

@@ -585,3 +585,198 @@ def test_an_unsupported_format_is_refused(client: TestClient) -> None:
 def test_the_download_limit_is_bounded(client: TestClient) -> None:
     """An unbounded extract is a denial-of-service vector on a public endpoint."""
     assert client.get("/api/v1/data/download?limit=999999").status_code == 422
+
+
+# -- route map (Phase 28) -------------------------------------------------
+
+
+def test_the_route_map_returns_coordinates_for_every_corridor(
+    client: TestClient,
+) -> None:
+    data = client.get("/api/v1/routes/map?days=7").json()["data"]
+    if not data["routes"]:
+        pytest.skip("no index history in this environment")
+
+    for route in data["routes"]:
+        for end in ("origin", "destination"):
+            assert 6.0 <= route[end]["lat"] <= 37.0, "latitude outside India"
+            assert 68.0 <= route[end]["lon"] <= 98.0, "longitude outside India"
+            assert route[end]["city"]
+
+
+def test_a_route_measurable_on_only_one_date_is_omitted(client: TestClient) -> None:
+    """Not shown at zero.
+
+    A corridor we could not measure is not a corridor that did not move, and
+    colouring it neutral would say the wrong thing on a map where colour carries
+    the whole message.
+    """
+    data = client.get("/api/v1/routes/map?days=7").json()["data"]
+    for route in data["routes"]:
+        assert route["index_value"] is not None
+        assert route["previous_index_value"] is not None
+
+
+def test_movement_bands_are_symmetric_about_zero(client: TestClient) -> None:
+    """A scale that treats a 5% rise differently from a 5% fall would editorialise."""
+    from api.main import _movement_band
+
+    assert _movement_band(6.0) == "SHARP_RISE"
+    assert _movement_band(-6.0) == "SHARP_FALL"
+    assert _movement_band(2.0) == "RISE"
+    assert _movement_band(-2.0) == "FALL"
+    assert _movement_band(0.5) == _movement_band(-0.5) == "STABLE"
+
+
+def test_the_map_window_is_bounded(client: TestClient) -> None:
+    assert client.get("/api/v1/routes/map?days=0").status_code == 422
+    assert client.get("/api/v1/routes/map?days=500").status_code == 422
+
+
+def test_routes_map_is_not_captured_by_the_route_code_path(client: TestClient) -> None:
+    """FastAPI matches in declaration order.
+
+    /api/v1/routes/{code} declared first captured "map" as a route code and
+    returned "No route 'map'". Asserted so a future reordering fails here.
+    """
+    assert client.get("/api/v1/routes/map").status_code == 200
+    assert client.get("/api/v1/routes/DEL-BOM").status_code in (200, 404)
+
+
+def test_the_heatmap_page_is_served(client: TestClient) -> None:
+    response = client.get("/heatmap")
+    assert response.status_code == 200
+    assert "Airfare movement across India" in response.text
+
+
+def test_the_map_draws_without_a_tile_server(client: TestClient) -> None:
+    """No mapping library and no tiles.
+
+    A government statistics page should not route its readers' requests to a
+    third party, and a demo should not fail because a tile host is slow.
+    """
+    js = _code_only(client.get("/static/apix.js").text)
+    assert "projectIndia" in js
+    for library in ("leaflet", "mapbox", "openstreetmap", "tile.", "d3.geo"):
+        assert library not in js.lower(), (
+            f"{library} appears in the code. (Comments are stripped first - this "
+            "helper exists because six tests in this file have failed on their own "
+            "explanatory prose.)"
+        )
+
+
+def test_the_outline_follows_the_official_depiction(client: TestClient) -> None:
+    """Depicting India's boundaries carries legal requirements.
+
+    Government of India maps show Jammu & Kashmir and Ladakh in full as Indian
+    territory, and this outline follows that depiction. It is labelled a
+    schematic locator rather than a survey product, because it is one - and a
+    page styled to resemble a ministry portal must not imply cartographic
+    authority it does not have.
+    """
+    js = _code_only(client.get("/static/apix.js").text)
+    assert "INDIA_PATH" in js
+    assert "projectIndia" in js, "the outline uses the same projection as the cities"
+
+    # Whitespace collapsed: the caption wraps across lines in the source, and a
+    # test that breaks on a line break is testing the formatter, not the claim.
+    html = " ".join(client.get("/heatmap").text.split())
+    assert "official Government of India depiction" in html
+    assert "Jammu" in html and "Ladakh" in html
+    assert "schematic locator" in html, (
+        "the outline must not present itself as a survey product"
+    )
+
+
+# -- frequency and anomalies (Phase 28) -----------------------------------
+
+
+@pytest.mark.parametrize("freq", ["D", "W", "M"])
+def test_the_index_is_served_at_all_three_frequencies(
+    client: TestClient, freq: str
+) -> None:
+    """PS 26056 asks for daily, weekly and monthly."""
+    data = client.get(f"/api/v1/index/frequency?freq={freq}").json()["data"]
+    assert data["frequency"] == freq
+    for period in data["series"]:
+        assert period["index_value"] is not None
+        assert "is_complete" in period
+
+
+def test_an_unsupported_frequency_is_refused(client: TestClient) -> None:
+    assert client.get("/api/v1/index/frequency?freq=Q").status_code == 422
+
+
+def test_the_frequency_response_states_how_periods_are_computed(
+    client: TestClient,
+) -> None:
+    """A reader must not have to guess whether a monthly figure is an average or
+    a month-end snapshot."""
+    note = client.get("/api/v1/index/frequency?freq=M").json()["data"]["note"]
+    assert "arithmetic mean" in note
+    assert "not the value on the last day" in note
+
+
+def test_monthly_periods_are_coarser_than_daily(client: TestClient) -> None:
+    daily = client.get("/api/v1/index/frequency?freq=D").json()["data"]["series"]
+    monthly = client.get("/api/v1/index/frequency?freq=M").json()["data"]["series"]
+    if daily:
+        assert len(monthly) <= len(daily)
+
+
+def test_the_anomaly_feed_states_its_policy(client: TestClient) -> None:
+    """Extreme observations are kept and counted, not discarded. Surfacing them
+    is the other half of that decision."""
+    meta = client.get("/api/v1/anomalies").json()["meta"]
+    assert "flagged and kept" in meta["policy"]
+    assert "1.1.0" in meta["policy"]
+
+
+# -- CPI contribution and scenarios (Phase 29) ----------------------------
+
+
+def test_the_contribution_endpoint_returns_a_range(client: TestClient) -> None:
+    """Not a point estimate: the airfare weight is unknown."""
+    response = client.get("/api/v1/cpi-contribution?movement_pct=5")
+    data = response.json()["data"]
+
+    assert data["contribution_bps"]["low"] < data["contribution_bps"]["high"]
+    assert "assumed_airfare_weight_pct" in data
+    assert "assumption" in data
+
+
+def test_the_contribution_never_presents_the_division_weight_as_the_item_weight(
+    client: TestClient,
+) -> None:
+    """8.796% is an upper bound on the divisional effect, not an airfare estimate."""
+    data = client.get("/api/v1/cpi-contribution?movement_pct=10").json()["data"]
+    assert data["contribution_bps"]["high"] < data["transport_division_upper_bound_bps"]
+    assert "order of magnitude" in data["assumption"]
+
+
+def test_the_scenario_separates_its_channels(client: TestClient) -> None:
+    data = client.get(
+        "/api/v1/scenario?fuel_change_pct=20&demand_change_pct=5"
+    ).json()["data"]
+
+    changes = data["fare_change_pct"]
+    assert changes["from_fuel"] > 0
+    assert changes["from_demand"] > 0
+    assert abs(changes["total"] - (changes["from_fuel"] + changes["from_demand"])) < 0.01
+
+
+def test_the_scenario_exposes_its_coefficients(client: TestClient) -> None:
+    """The assumptions are the model. Hiding them makes it unfalsifiable."""
+    inputs = client.get("/api/v1/scenario?fuel_change_pct=10").json()["data"]["inputs"]
+    for coefficient in ("fuel_share_of_fare", "pass_through", "demand_elasticity"):
+        assert coefficient in inputs
+
+
+def test_scenario_caveats_are_part_of_the_response(client: TestClient) -> None:
+    caveats = client.get("/api/v1/scenario?fuel_change_pct=10").json()["data"]["caveats"]
+    assert len(caveats) >= 4
+    assert any("not an econometric forecast" in c for c in caveats)
+
+
+def test_scenario_inputs_are_bounded(client: TestClient) -> None:
+    assert client.get("/api/v1/scenario?fuel_change_pct=9999").status_code == 422

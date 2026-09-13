@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Policy Scenarios — APIx</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-updated="">
+<div id="chrome"></div>
+
+<main id="main">
+  <div class="banner">
+    <strong>A transparent arithmetic model, not an econometric forecast.</strong>
+    Three additive channels with visible coefficients. Its value is that you can see
+    which assumption produced which number, and change it. It does not estimate what
+    <em>will</em> happen; it shows what follows from the assumptions stated below.
+  </div>
+
+  <section>
+    <h2>Shock</h2>
+    <div class="body">
+      <label for="fuel">Aviation turbine fuel&nbsp;</label>
+      <input type="number" id="fuel" value="20" step="5" min="-100" max="200" style="width:5rem">%
+      &nbsp;&nbsp;
+      <label for="demand">Demand&nbsp;</label>
+      <input type="number" id="demand" value="0" step="5" min="-100" max="200" style="width:5rem">%
+      &nbsp;&nbsp;
+      <label for="direct">Direct fare shock&nbsp;</label>
+      <input type="number" id="direct" value="0" step="1" min="-100" max="200" style="width:5rem">%
+    </div>
+  </section>
+
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>How the fare change arises</h2>
+    <div id="channels"><div class="empty">Adjust a value above.</div></div>
+    <div class="meta" id="coefficients"></div>
+  </section>
+
+  <section>
+    <h2>Contribution to headline CPI</h2>
+    <div id="contribution"><div class="empty">—</div></div>
+    <div class="meta">
+      Reported as a <strong>range</strong>, never a single figure. APIx does not know
+      the CPI weight of airfare, and the Transport division weight of 8.796% is not a
+      substitute &mdash; that division covers rail, bus, taxi, fuel and vehicle
+      purchase as well as air travel. A point estimate here would be precise and
+      unfounded, and precision is what makes an unfounded number persuasive.
+    </div>
+  </section>
+
+  <section>
+    <h2>Assumptions and limits</h2>
+    <div id="caveats"><div class="empty">—</div></div>
+  </section>
+</main>
+
+<div id="gov-footer"></div>
+
+<script src="/static/apix.js"></script>
+<script>
+initChrome("/scenario", document.body.dataset.updated);
+
+async function run() {
+  const fuel = document.getElementById("fuel").value || 0;
+  const demand = document.getElementById("demand").value || 0;
+  const direct = document.getElementById("direct").value || 0;
+
+  const r = await get(`/api/v1/scenario?fuel_change_pct=${fuel}` +
+                      `&demand_change_pct=${demand}&direct_fare_shock_pct=${direct}`);
+  const d = r.data, f = d.fare_change_pct, c = d.cpi_contribution_bps;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Fare change implied</div>
+      <div class="value">${pct(f.total)}</div>
+      <div class="note">across all three channels</div></div>
+    <div class="stat"><div class="label">CPI contribution</div>
+      <div class="value">${idx(c.low, 2)}–${idx(c.high, 2)}</div>
+      <div class="note">basis points, on the assumed weight range</div></div>
+    <div class="stat"><div class="label">From fuel</div>
+      <div class="value muted">${pct(f.from_fuel)}</div>
+      <div class="note">${(d.inputs.fuel_share_of_fare * 100).toFixed(0)}% of cost ·
+        ${(d.inputs.pass_through * 100).toFixed(0)}% pass-through</div></div>
+    <div class="stat"><div class="label">From demand</div>
+      <div class="value muted">${pct(f.from_demand)}</div>
+      <div class="note">elasticity ${idx(d.inputs.demand_elasticity, 2)}</div></div>`;
+
+  document.getElementById("channels").innerHTML = table([
+    {label: "Channel", render: x => x.name},
+    {label: "Input", num: true, render: x => x.input === null ? "—" : pct(x.input)},
+    {label: "Effect on fares", num: true, render: x => pct(x.effect)},
+    {label: "How", render: x => x.how},
+  ], [
+    {name: "Aviation turbine fuel", input: Number(fuel), effect: f.from_fuel,
+     how: `input × ${(d.inputs.fuel_share_of_fare * 100).toFixed(0)}% of cost × ${(d.inputs.pass_through * 100).toFixed(0)}% pass-through`},
+    {name: "Demand", input: Number(demand), effect: f.from_demand,
+     how: `input × elasticity ${idx(d.inputs.demand_elasticity, 2)}`},
+    {name: "Direct fare shock", input: Number(direct), effect: f.direct,
+     how: "applied as given"},
+    {name: "Total", input: null, effect: f.total, how: "channels summed"},
+  ]);
+
+  document.getElementById("coefficients").textContent =
+    "Every coefficient above is adjustable in the API. They are the model — hiding " +
+    "them would make it unfalsifiable.";
+
+  document.getElementById("contribution").innerHTML =
+    `<div class="body" style="font-size:.95rem">${esc(d.summary)}</div>`;
+
+  document.getElementById("caveats").innerHTML =
+    `<div class="body"><ul style="margin:0;padding-left:20px;font-size:.88rem;line-height:1.7">` +
+    d.caveats.map(c => `<li>${esc(c)}</li>`).join("") + `</ul></div>`;
+}
+
+for (const id of ["fuel", "demand", "direct"]) {
+  document.getElementById(id).addEventListener("input", () => run().catch(() => {}));
+}
+run().catch(() => {
+  document.getElementById("channels").innerHTML =
+    '<div class="empty">Scenario service unavailable.</div>';
+});
+</script>
+</body>
+</html>
