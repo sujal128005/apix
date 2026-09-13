@@ -25,6 +25,13 @@ from collector.scheduler import (
     build_daily_plan,
     start_scheduler,
 )
+from collector.supply import (
+    SuppliedQuote,
+    SupplyFormatError,
+    SupplySource,
+    ValidationReport,
+    parse_supplied_quotes,
+)
 from collector.tls import TlsLadder, TlsMode, build_ssl_context
 
 __all__ = [
@@ -43,11 +50,16 @@ __all__ = [
     "SourceAdapter",
     "SourceValidation",
     "SpecOutcome",
+    "SuppliedQuote",
+    "SupplyFormatError",
+    "SupplySource",
     "TlsLadder",
     "TlsMode",
     "TransportOutcome",
+    "ValidationReport",
     "build_daily_plan",
     "build_ssl_context",
     "is_retryable",
+    "parse_supplied_quotes",
     "start_scheduler",
 ]
