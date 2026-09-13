@@ -11,7 +11,14 @@
 
 <main id="main">
   <div class="banner">
-    <strong>This is a price profile, not an elasticity.</strong>
+    <strong>This is a price profile, not an elasticity, and not yet a measured
+    premium.</strong>
+    On first contact with real data the nearest window came back <em>cheaper</em>
+    than the furthest &mdash; but the two compared different departure dates, one a
+    Monday and one a Sunday, so the comparison is confounded. Measuring the
+    last-minute premium properly needs the same departure date observed at
+    different horizons, over several weeks. See
+    <code>docs/evidence/O9-lead-time-premium.md</code>.<br><br>
     No causal elasticity is estimated. What is shown is the observed fare level at
     each booking horizon on a single collection date. Calling it elasticity would
     claim considerably more than the data supports, so the name is not used
@@ -80,9 +87,9 @@ async function load(route) {
     <div class="stat"><div class="label">Booking six weeks out (T+45)</div>
       <div class="value">${far ? money(far.mean_fare) : "—"}</div>
       <div class="note">${far ? far.relative_to_t21 + "% of the T+21 fare" : ""}</div></div>
-    <div class="stat"><div class="label">Last-minute premium</div>
-      <div class="value">${premium === null ? "—" : "+" + premium.toFixed(0) + "%"}</div>
-      <div class="note">T+1 against T+45</div></div>`;
+    <div class="stat"><div class="label">Nearest vs furthest</div>
+      <div class="value">${premium === null ? "—" : (premium >= 0 ? "+" : "") + premium.toFixed(0) + "%"}</div>
+      <div class="note">observed difference, not an established premium</div></div>`;
 
   document.getElementById("chart").innerHTML = barChart(
     buckets.map(b => ({x: b.bucket, sub: b.days + " days", y: b.mean_fare, cpi: b.cpi_comparable})),

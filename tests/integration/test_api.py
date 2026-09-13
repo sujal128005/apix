@@ -210,30 +210,25 @@ def test_the_lead_time_profile_is_ordered_by_horizon(client: TestClient) -> None
     assert [b["days"] for b in buckets] == sorted(b["days"] for b in buckets)
 
 
-def test_fares_fall_as_the_booking_horizon_lengthens(client: TestClient) -> None:
-    """The finding the whole problem statement rests on.
+# NOTE: an earlier test here asserted that nearer departures are dearer. It
+# failed on the first day of real collection - Akasa's T+1 came back at 7,105
+# against T+21 at 7,570 - and was removed rather than adjusted. Whether the
+# premium exists is a fact about the market; a test asserting one fails whenever
+# reality disagrees, which makes it a bad test. The question is recorded in
+# docs/evidence/O9-lead-time-premium.md instead.
 
-    If booking further ahead were not cheaper, a lead-time-aware index would
-    have nothing to add over a single monthly price collection.
 
-    Compares the shortest and longest horizons **actually collected**, rather
-    than assuming T1 and T45 are always present. The demo generator produced all
-    six windows, so assuming them was safe until real collection began - live
-    runs collect whatever was asked for, and partial coverage is the normal
-    case, not a fault.
-    """
+def test_the_profile_reports_horizons_in_order(client: TestClient) -> None:
+    """Ordering and completeness are properties of our code, so they are asserted."""
     buckets = client.get("/api/v1/lead-time-profile").json()["data"]["buckets"]
-    if len(buckets) < 2:
-        pytest.skip("fewer than two advance-purchase windows collected")
+    if not buckets:
+        pytest.skip("no observations collected in this environment")
 
-    by_days = sorted(buckets, key=lambda b: b["days"])
-    nearest, furthest = by_days[0], by_days[-1]
-
-    assert nearest["mean_fare"] > furthest["mean_fare"], (
-        f"{nearest['bucket']} ({nearest['days']}d) at {nearest['mean_fare']:.0f} is not "
-        f"dearer than {furthest['bucket']} ({furthest['days']}d) at "
-        f"{furthest['mean_fare']:.0f}"
-    )
+    assert [b["days"] for b in buckets] == sorted(b["days"] for b in buckets)
+    for bucket in buckets:
+        assert bucket["quotes"] > 0
+        assert bucket["mean_fare"] > 0
+        assert bucket["min_fare"] <= bucket["mean_fare"] <= bucket["max_fare"]
 
 
 def test_the_profile_is_never_called_an_elasticity(client: TestClient) -> None:
